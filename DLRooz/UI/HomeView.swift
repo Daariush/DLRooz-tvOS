@@ -136,6 +136,7 @@ struct ContinueItem: Identifiable {
 /// Opens the title and, when there's local progress, resumes it right away.
 struct ContinueCard: View {
     let item: ContinueItem
+    @State private var score: Double?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -148,9 +149,13 @@ struct ContinueCard: View {
                     }
                 }
                 .frame(width: Theme.posterSize.width, height: Theme.posterSize.height)
+                .overlay(alignment: .topLeading) {
+                    if let score, score > 0 { RatingBadge(score: score).padding(10) }
+                }
                 .clipped()
             }
             .buttonStyle(.card)
+            .task(id: item.ref) { score = await RatingStore.shared.rating(for: item.ref) }
             Text(item.entry?.title ?? item.ref.slug.replacingOccurrences(of: "-", with: " ").capitalized)
                 .font(.callout).lineLimit(1)
                 .environment(\.layoutDirection, .leftToRight)

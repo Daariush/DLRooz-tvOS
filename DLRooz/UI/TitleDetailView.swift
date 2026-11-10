@@ -15,6 +15,7 @@ struct TitleDetailView: View {
     @State private var dubbed = false
     @State private var season = 1
     @State private var inWatchlist: Bool?
+    @State private var watchlistBusy = false
     @State private var starting = false
     @State private var playError: String?
     @State private var chooserEpisode: Episode?
@@ -137,9 +138,10 @@ struct TitleDetailView: View {
                 }
             }
             Button { toggleWatchlist() } label: {
-                Image(systemName: inWatchlist == true ? "checkmark" : "plus")
-                    .accessibilityLabel(L("لیست من", "My List"))
+                Label(inWatchlist == true ? L("در لیست من", "In My List") : L("افزودن به لیست من", "Add to My List"),
+                      systemImage: inWatchlist == true ? "bookmark.fill" : "bookmark")
             }
+            .disabled(watchlistBusy)
         }
         .focusSection()
     }
@@ -191,6 +193,7 @@ struct TitleDetailView: View {
             let d = try await model.site.title(ref)
             dubbed = !d.catalog.dub.isEmpty && LocalPrefs.dubbed(ref)
             detail = d
+            RatingStore.shared.remember(ref, score: d.card.imdb?.score)
             inWatchlist = d.inWatchlist
             season = defaultSeason(d)
             error = nil
@@ -269,11 +272,25 @@ struct TitleDetailView: View {
         }
     }
 
+    /// The site's bookmark is a toggle. After toggling, the title page is read again so the button shows
+    /// what the site actually stored (and a toggle that didn't stick is reported).
     private func toggleWatchlist() {
-        let before = inWatchlist ?? false
-        inWatchlist = !before
+        guard !watchlistBusy else { return }
+        let before = inWatchlist
+        let wanted = !(before ?? false)
+        inWatchlist = wanted
+        watchlistBusy = true
         Task {
-            do { try await model.site.toggleWatchlist(postId: ref.postId) } catch {
+            defer { watchlistBusy = false }
+            do {
+                try await model.site.toggleWatchlist(postId: ref.postId)
+                if let confirmed = try? await model.site.title(ref).inWatchlist {
+                    inWatchlist = confirmed
+                    if confirmed != wanted {
+                        playError = L("سایت تغییر لیست را ذخیره نکرد", "The site didn't save the change to your list")
+                    }
+                }
+            } catch {
                 inWatchlist = before
                 playError = error.localizedDescription
             }

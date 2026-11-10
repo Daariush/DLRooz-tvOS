@@ -3,6 +3,7 @@ import SwiftUI
 enum Route: Hashable {
     case title(TitleRef, backdropHash: String?)
     case list(title: String, path: String, categories: CategoryKind?)
+    case subtitleSources
 }
 
 /// The tvOS top tab bar, as in the Apple TV app: Home, Series, Films, My List, Search, Settings.
@@ -17,7 +18,7 @@ struct MainTabView: View {
                 .tabItem { Label(L("سریال‌ها", "Series"), systemImage: "tv") }.tag(1)
             NavStack { ListGridView(title: L("فیلم‌ها", "Films"), path: SiteConfig.filmsPath, categories: .film) }
                 .tabItem { Label(L("فیلم‌ها", "Films"), systemImage: "film") }.tag(2)
-            NavStack { ListGridView(title: L("لیست من", "My List"), path: SiteConfig.watchlistPath, categories: nil,
+            NavStack { ListGridView(title: L("لیست من", "My List"), path: SiteConfig.watchlistPath, categories: nil, reloadOnAppear: true,
                                     emptyText: L("هنوز چیزی به لیست خود اضافه نکرده‌اید", "Nothing on your list yet")) }
                 .tabItem { Label(L("لیست من", "My List"), systemImage: "bookmark") }.tag(3)
             NavStack { SearchView() }
@@ -42,6 +43,8 @@ struct NavStack<Content: View>: View {
                         TitleDetailView(ref: ref, featuredBackdrop: backdrop)
                     case .list(let title, let path, let categories):
                         ListGridView(title: title, path: path, categories: categories)
+                    case .subtitleSources:
+                        SubtitleSourcesView()
                     }
                 }
         }

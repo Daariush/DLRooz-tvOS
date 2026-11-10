@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
         auth = AuthService(http: http)
         site = SiteRepository(http: http, auth: auth)
         ImageLoader.shared.jar = jar
+        RatingStore.shared.site = site
         phase = auth.isLoggedIn ? .signedIn : .signedOut
         username = auth.storedUsername
         if let data = UserDefaults.standard.data(forKey: "home.cache") {

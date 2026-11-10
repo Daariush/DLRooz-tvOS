@@ -6,6 +6,8 @@ struct ListGridView: View {
     let title: String
     let path: String
     let categories: CategoryKind?
+    /// My List changes when titles are bookmarked elsewhere in the app: refresh each time it is shown.
+    var reloadOnAppear = false
     var emptyText: String?
 
     @EnvironmentObject var model: AppModel
@@ -44,6 +46,7 @@ struct ListGridView: View {
             .padding(.vertical, 40)
         }
         .task { if page == 0 { await reload() } }
+        .onAppear { if reloadOnAppear && page > 0 && !loading { Task { await refresh() } } }
     }
 
     private var chipRow: some View {
@@ -88,6 +91,14 @@ struct ListGridView: View {
             self.error = error.localizedDescription
             page = 1
         }
+    }
+
+    /// Reloads page 1 without blanking the grid.
+    private func refresh() async {
+        guard let first = try? await model.site.list(currentPath, page: 1) else { return }
+        items = first.items
+        page = first.page
+        lastPage = first.lastPage
     }
 
     private func loadMore() async {

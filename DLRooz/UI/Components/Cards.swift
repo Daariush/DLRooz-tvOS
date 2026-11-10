@@ -6,7 +6,9 @@ struct PosterCard: View {
     let title: String
     let posterHash: String?
     var subtitle: String?
-    var badge: String?
+    /// IMDb score when the list already carries it; otherwise it is looked up (and cached) from the title page.
+    var rating: Double?
+    @State private var fetched: Double?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -14,7 +16,7 @@ struct PosterCard: View {
                 RemoteImage(url: Theme.posterURL(posterHash))
                     .frame(width: Theme.posterSize.width, height: Theme.posterSize.height)
                     .overlay(alignment: .topLeading) {
-                        if let badge { Pill(text: badge, filled: true).padding(10) }
+                        if let score = rating ?? fetched, score > 0 { RatingBadge(score: score).padding(10) }
                     }
                     .clipped()
             }
@@ -27,14 +29,33 @@ struct PosterCard: View {
                     .frame(width: Theme.posterSize.width, alignment: .leading)
             }
         }
+        .task(id: ref) {
+            guard rating == nil else { return }
+            fetched = await RatingStore.shared.rating(for: ref)
+        }
     }
 }
 
 extension PosterCard {
     init(card: TitleCard) {
         self.init(ref: card.ref, title: card.title, posterHash: card.posterHash,
-                  subtitle: card.episodeLabel ?? card.year.map { String($0) },
-                  badge: card.imdb.map { "IMDb \(String(format: "%.1f", $0.score))" })
+                  subtitle: card.episodeLabel ?? card.year.map { String($0) }, rating: card.imdb?.score)
+    }
+}
+
+/// The IMDb score on a thumbnail, in IMDb's yellow.
+struct RatingBadge: View {
+    let score: Double
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("IMDb").font(.system(size: 17, weight: .heavy))
+            Text(String(format: "%.1f", score)).font(.system(size: 22, weight: .bold))
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(Color(red: 0.96, green: 0.77, blue: 0.09), in: RoundedRectangle(cornerRadius: 8))
+        .environment(\.layoutDirection, .leftToRight)
     }
 }
 
