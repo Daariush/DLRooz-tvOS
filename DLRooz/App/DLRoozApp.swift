@@ -16,6 +16,7 @@ struct DLRoozApp: App {
                 .environment(\.locale, Locale(identifier: settings.language == .fa ? "fa_IR" : "en_US"))
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
+                .buttonStyle(TVButtonStyle())
                 // Changing the language rebuilds every screen with the new copy.
                 .id(settings.language)
         }

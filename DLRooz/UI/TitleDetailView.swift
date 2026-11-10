@@ -16,7 +16,6 @@ struct TitleDetailView: View {
     @State private var season = 1
     @State private var inWatchlist: Bool?
     @State private var watchlistBusy = false
-    @State private var scores: ExternalScores?
     @State private var starting = false
     @State private var playError: String?
     @State private var chooserEpisode: Episode?
@@ -88,8 +87,7 @@ struct TitleDetailView: View {
                 .environment(\.layoutDirection, .leftToRight)
             HStack(spacing: 14) {
                 if let r = c.imdb { RatingBadge(score: r.score) }
-                if let rt = scores?.rottenTomatoes { TomatoBadge(value: rt) }
-                if let meta = c.criticsScore.map({ "\($0)/100" }) ?? scores?.metacritic { MetacriticBadge(value: meta) }
+                if let meta = c.criticsScore.map({ "\($0)/100" }) { MetacriticBadge(value: meta) }
                 if !d.catalog.dub.isEmpty { Pill(text: L("دوبله", "Dubbed")) }
                 if d.catalog.main.first?.episodes.first?.subtitles.isEmpty == false { Pill(text: L("زیرنویس", "Subtitles")) }
                 if let ch = d.channel { Pill(text: ch) }
@@ -159,9 +157,8 @@ struct TitleDetailView: View {
                         ForEach(seasons) { s in
                             Button { season = s.number } label: {
                                 Text(L("فصل \(N(s.number))", "Season \(s.number)"))
-                                    .foregroundStyle(s.number == current?.number ? Theme.accent : .primary)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(TVButtonStyle(selected: s.number == current?.number))
                         }
                     }
                     .padding(.vertical, 16)
@@ -197,9 +194,6 @@ struct TitleDetailView: View {
             dubbed = !d.catalog.dub.isEmpty && LocalPrefs.dubbed(ref)
             detail = d
             RatingStore.shared.remember(ref, score: d.card.imdb?.score)
-            if let id = d.imdbID {
-                Task { scores = await ExternalRatings.shared.scores(imdbID: id) }
-            }
             inWatchlist = d.inWatchlist
             season = defaultSeason(d)
             error = nil

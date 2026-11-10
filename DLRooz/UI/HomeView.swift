@@ -48,12 +48,11 @@ struct HomeView: View {
                 if !home.featured.isEmpty { featuredRow(home.featured) }
                 continueRow(home)
                 ForEach(home.sections) { section in
-                    CardRow(title: UIStrings.joinPlurals(section.title), morePath: section.morePath, items: section.items) {
-                        PosterCard(card: $0)
-                    }
+                    PagedRow(title: UIStrings.joinPlurals(section.title), path: section.morePath,
+                             initial: section.items, firstPage: 0)
                 }
                 ForEach(extraRows) { row in
-                    CardRow(title: row.title, morePath: row.path, items: row.items) { PosterCard(card: $0) }
+                    PagedRow(title: row.title, path: row.path, initial: row.items, firstPage: 1)
                 }
             }
             .padding(.vertical, 40)
@@ -122,6 +121,55 @@ struct HomeView: View {
                     extraRows.append(ExtraRow(title: L(src.fa, src.en), path: src.path, items: page.items))
                 }
             }
+        }
+    }
+}
+
+/// A home row that keeps loading the next page of its list as you scroll towards its end.
+struct PagedRow: View {
+    @EnvironmentObject var model: AppModel
+    let title: String
+    let path: String?
+    let initial: [TitleCard]
+    /// The list page `initial` already covers: 0 for home-page rows (their own picks), 1 for list rows.
+    let firstPage: Int
+    @State private var more: [TitleCard] = []
+    @State private var page: Int?
+    @State private var lastPage = Int.max
+    @State private var loading = false
+
+    private var items: [TitleCard] {
+        var seen = Set<TitleRef>()
+        return (initial + more).filter { seen.insert($0.ref).inserted }
+    }
+
+    var body: some View {
+        let all = items
+        CardRow(title: title, items: all) { card in
+            PosterCard(card: card)
+                .onAppear {
+                    if let i = all.firstIndex(where: { $0.ref == card.ref }), i >= all.count - 4 {
+                        Task { await loadMore() }
+                    }
+                }
+        }
+    }
+
+    /// Fetches the next list page; if every title on it is already in the row (home picks are often on
+    /// page 1), it goes on to the following page so the row actually grows.
+    private func loadMore() async {
+        guard let path, !loading else { return }
+        loading = true
+        defer { loading = false }
+        for _ in 0..<3 {
+            let next = (page ?? firstPage) + 1
+            guard next <= lastPage, next <= 15 else { return }
+            guard let result = try? await model.site.list(path, page: next) else { return }
+            let before = items.count
+            page = next
+            lastPage = result.items.isEmpty ? next : result.lastPage
+            more += result.items
+            if items.count > before { return }
         }
     }
 }

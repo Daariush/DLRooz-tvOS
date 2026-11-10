@@ -45,12 +45,6 @@ struct SettingsView: View {
                                          value: "SubDL · SubSource · OpenSubtitles")
                     }
 
-                    SettingsHeader(L("امتیازها", "Ratings"))
-                    NavigationLink(value: Route.ratingSources) {
-                        SettingsRowLabel(title: "Rotten Tomatoes",
-                                         value: settings.omdbKey.isEmpty ? (ExternalRatings.builtInKey.isEmpty ? L("کلید OMDb لازم است", "Needs an OMDb key") : L("فعال (کلید داخلی)", "On (built-in key)")) : L("فعال", "On"))
-                    }
-
                     SettingsHeader(L("برنامه", "App"))
                     CycleRow(title: L("زبان", "Language"), options: AppLanguage.allCases,
                              selection: $settings.language) { $0.label }
@@ -58,7 +52,6 @@ struct SettingsView: View {
                         ImageLoader.shared.clear()
                         URLCache.shared.removeAllCachedResponses()
                         RatingStore.shared.clear()
-                        ExternalRatings.shared.clear()
                         cleared = true
                     }
                     SettingsRow(title: L("پاک کردن سابقه تماشا در این دستگاه", "Clear watch history on this device"),
@@ -68,8 +61,6 @@ struct SettingsView: View {
                     }
                     SettingsInfoRow(title: L("نسخه", "Version"),
                                     value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
-                    Text(L("روی هر گزینه کلیک کنید تا مقدار بعدی انتخاب شود.", "Click an option to switch to its next value."))
-                        .font(.caption).foregroundStyle(Theme.secondaryText).padding(.top, 10)
                 }
                 .padding(.vertical, 40)
                 .padding(.horizontal, 20)
@@ -84,8 +75,8 @@ struct SettingsView: View {
     }
 }
 
-// Settings rows are plain buttons. Navigation-style pickers inside a Form pushed a blank screen on tvOS,
-// so every option changes in place: a click moves to the next value.
+// Settings rows are plain buttons and pop-up menus. Navigation-style pickers inside a Form pushed a blank
+// screen on tvOS, so options are chosen from a menu over the same screen.
 
 struct SettingsHeader: View {
     let text: String
@@ -102,7 +93,7 @@ struct SettingsRowLabel: View {
         HStack {
             Text(title)
             Spacer(minLength: 30)
-            Text(value).foregroundStyle(Theme.secondaryText)
+            Text(value).opacity(0.6)
         }
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
@@ -126,7 +117,7 @@ struct SettingsInfoRow: View {
     }
 }
 
-/// A row that moves to the next option on each click (wrapping around).
+/// A row that opens a pop-up menu of its options, with a checkmark on the current one.
 struct CycleRow<T: Equatable>: View {
     let title: String
     let options: [T]
@@ -134,11 +125,24 @@ struct CycleRow<T: Equatable>: View {
     let label: (T) -> String
 
     var body: some View {
-        SettingsRow(title: title, value: label(selection)) {
-            guard !options.isEmpty else { return }
-            let i = options.firstIndex(of: selection) ?? -1
-            selection = options[(i + 1) % options.count]
+        Menu {
+            ForEach(options.indices, id: \.self) { i in
+                let option = options[i]
+                Button {
+                    selection = option
+                } label: {
+                    if option == selection {
+                        Label(label(option), systemImage: "checkmark")
+                    } else {
+                        Text(label(option))
+                    }
+                }
+            }
+        } label: {
+            SettingsRowLabel(title: title, value: label(selection))
         }
+        .menuStyle(.button)
+        .buttonStyle(TVButtonStyle())
     }
 }
 
@@ -246,38 +250,6 @@ struct SubtitleSourcesView: View {
             }
             testResult = lines.joined(separator: "\n")
             testing = false
-        }
-    }
-}
-
-/// The OMDb key used to show Rotten Tomatoes scores on title pages.
-struct RatingSourcesView: View {
-    @EnvironmentObject var settings: AppSettings
-    @State private var testResult: String?
-    @State private var testing = false
-
-    var body: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Rotten Tomatoes").font(.title2.bold())
-                Text(L("سایت دی‌ال‌روز فقط امتیاز IMDb و منتقدین (Metacritic) را دارد. امتیاز Rotten Tomatoes از OMDb گرفته می‌شود که یک کلید رایگان می‌خواهد (روزانه ۱۰۰۰ درخواست): omdbapi.com/apikey.aspx",
-                       "DLRooz only shows IMDb and critics (Metacritic) scores. Rotten Tomatoes scores come from OMDb, which needs a free key (1,000 lookups a day): omdbapi.com/apikey.aspx"))
-                    .font(.caption).foregroundStyle(Theme.secondaryText)
-                SettingsHeader("OMDb")
-                SecureField(L("کلید API", "API key"), text: $settings.omdbKey)
-                SettingsRow(title: testing ? L("در حال آزمایش…", "Testing…") : L("آزمایش کلید", "Test the key"), value: "") {
-                    guard !testing else { return }
-                    testing = true
-                    Task {
-                        let error = await ExternalRatings.shared.test(key: settings.omdbKey.trimmed)
-                        testResult = error.map { "✗ " + $0 } ?? "✓ " + L("کلید کار می‌کند", "The key works")
-                        testing = false
-                    }
-                }
-                if let testResult { Text(testResult).font(.caption).padding(.horizontal, 20) }
-            }
-            .padding(.horizontal, 200)
-            .padding(.vertical, 40)
         }
     }
 }

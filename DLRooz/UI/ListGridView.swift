@@ -66,10 +66,9 @@ struct ListGridView: View {
             selectedPath = path
             Task { await reload() }
         } label: {
-            Text(label).font(.callout)
-                .foregroundStyle(selectedPath == path ? Theme.accent : .primary)
+            Text(label)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(TVButtonStyle(selected: selectedPath == path))
     }
 
     private func reload() async {

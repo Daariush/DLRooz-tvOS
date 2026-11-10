@@ -4,7 +4,6 @@ enum Route: Hashable {
     case title(TitleRef, backdropHash: String?)
     case list(title: String, path: String, categories: CategoryKind?)
     case subtitleSources
-    case ratingSources
 }
 
 /// The tvOS top tab bar, as in the Apple TV app: Home, Series, Films, My List, Search, Settings.
@@ -46,8 +45,6 @@ struct NavStack<Content: View>: View {
                         ListGridView(title: title, path: path, categories: categories)
                     case .subtitleSources:
                         SubtitleSourcesView()
-                    case .ratingSources:
-                        RatingSourcesView()
                     }
                 }
         }

@@ -59,25 +59,6 @@ struct RatingBadge: View {
     }
 }
 
-/// Rotten Tomatoes Tomatometer: red tomato when fresh (60% and up), green splat when rotten.
-struct TomatoBadge: View {
-    let value: String
-
-    private var fresh: Bool { (Int(value.filter(\.isNumber)) ?? 0) >= 60 }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(fresh ? "🍅" : "🤢").font(.system(size: 20))
-            Text(value).font(.system(size: 22, weight: .bold))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(fresh ? Color(red: 0.86, green: 0.16, blue: 0.10) : Color(red: 0.36, green: 0.62, blue: 0.20),
-                    in: RoundedRectangle(cornerRadius: 8))
-        .environment(\.layoutDirection, .leftToRight)
-    }
-}
-
 /// Metacritic score (the site's «امتیاز منتقدین»).
 struct MetacriticBadge: View {
     let value: String
@@ -104,23 +85,13 @@ struct MetacriticBadge: View {
 /// A titled horizontal row of cards.
 struct CardRow<Item: Identifiable, Card: View>: View {
     let title: String
-    var morePath: String?
     let items: [Item]
     @ViewBuilder let card: (Item) -> Card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text(title).font(.title3.weight(.semibold))
-                Spacer()
-                if let morePath {
-                    NavigationLink(value: Route.list(title: title, path: morePath, categories: nil)) {
-                        Text(L("همه", "See all")).font(.callout)
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-            .padding(.horizontal, 80)
+            Text(title).font(.title3.weight(.semibold))
+                .padding(.horizontal, 80)
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: 40) {
                     ForEach(items) { card($0) }

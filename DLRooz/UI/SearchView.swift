@@ -21,7 +21,7 @@ struct SearchView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 20) {
                                 ForEach(recent, id: \.self) { q in
-                                    Button(q) { query = q }.buttonStyle(.bordered)
+                                    Button(q) { query = q }
                                 }
                             }
                             .padding(.vertical, 20)

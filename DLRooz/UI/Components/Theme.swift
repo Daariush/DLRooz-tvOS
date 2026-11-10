@@ -62,3 +62,37 @@ extension TitleCard {
         return parts.joined(separator: "  ·  ")
     }
 }
+
+/// The app's button look on Apple TV: a soft dark plate at rest; when focused it lifts and turns white
+/// with dark text (as in the Apple TV app), so every label stays readable. `selected` marks the active
+/// chip or season with the accent colour.
+struct TVButtonStyle: ButtonStyle {
+    var selected = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        Plate(configuration: configuration, selected: selected)
+    }
+
+    private struct Plate: View {
+        let configuration: ButtonStyleConfiguration
+        let selected: Bool
+        @Environment(\.isFocused) private var focused
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            configuration.label
+                .font(.callout.weight(.medium))
+                .foregroundStyle(focused ? Color.black : Color.white)
+                .padding(.horizontal, 28).padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(focused ? Color.white : (selected ? Theme.accent : Color.white.opacity(0.10)))
+                )
+                .scaleEffect(focused ? (configuration.isPressed ? 1.0 : 1.06) : 1)
+                .shadow(color: .black.opacity(focused ? 0.45 : 0), radius: 16, y: 10)
+                .opacity(enabled ? 1 : 0.45)
+                .animation(.easeOut(duration: 0.15), value: focused)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
+    }
+}

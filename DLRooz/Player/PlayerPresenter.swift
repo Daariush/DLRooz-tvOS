@@ -21,6 +21,9 @@ final class PlayerPresenter: NSObject, AVPlayerViewControllerDelegate {
         vc.player = controller.player
         vc.delegate = self
         vc.allowsPictureInPicturePlayback = false
+        // One subtitle button only: the app's own menu (site + SubDL/SubSource/OpenSubtitles). Allowing
+        // no language hides the system subtitle button that the stream's text tracks would add.
+        vc.allowedSubtitleOptionLanguages = ["zxx"]
         let overlay = SubtitleOverlayView()
         overlay.translatesAutoresizingMaskIntoConstraints = false
         if let content = vc.contentOverlayView {

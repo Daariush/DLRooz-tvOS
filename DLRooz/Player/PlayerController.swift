@@ -182,6 +182,10 @@ final class PlayerController: NSObject, ObservableObject {
                 ?? options.first { !$0.displayName.lowercased().contains("dub") }
         }
         if let wanted { item.select(wanted, in: group) }
+        // Subtitles are drawn by the app (its own menu), so the stream's own text tracks stay off.
+        if let legible = try? await item.asset.loadMediaSelectionGroup(for: .legible) {
+            item.select(nil, in: legible)
+        }
     }
 
     private func metadata() -> [AVMetadataItem] {

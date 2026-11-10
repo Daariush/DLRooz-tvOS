@@ -103,8 +103,6 @@ final class AppSettings: ObservableObject {
     @Published var openSubtitlesKey: String { didSet { Keychain.setString(openSubtitlesKey.trimmed, for: SecretKeys.osKey) } }
     @Published var openSubtitlesUser: String { didSet { Keychain.setString(openSubtitlesUser.trimmed, for: SecretKeys.osUser) } }
     @Published var openSubtitlesPassword: String { didSet { Keychain.setString(openSubtitlesPassword, for: SecretKeys.osPassword) } }
-    /// OMDb key for Rotten Tomatoes scores on title pages.
-    @Published var omdbKey: String { didSet { Keychain.setString(omdbKey.trimmed, for: ExternalRatings.keychainKey) } }
 
     static let bufferOptions = [5, 10, 20]
     static let sizeOptions = Array(stride(from: 60, through: 200, by: 10))
@@ -129,7 +127,8 @@ final class AppSettings: ObservableObject {
         openSubtitlesKey = Keychain.string(for: SecretKeys.osKey)
         openSubtitlesUser = Keychain.string(for: SecretKeys.osUser)
         openSubtitlesPassword = Keychain.string(for: SecretKeys.osPassword)
-        omdbKey = Keychain.string(for: ExternalRatings.keychainKey)
+        Keychain.setString("", for: "ratings.omdb.key")
+        UserDefaults.standard.removeObject(forKey: "ratings.omdb.cache")
     }
 
     var layoutDirection: LayoutDirection { language == .fa ? .rightToLeft : .leftToRight }
