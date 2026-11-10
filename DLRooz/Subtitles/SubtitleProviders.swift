@@ -258,9 +258,7 @@ final class OnlineSubtitles: @unchecked Sendable {
     }
 
     private func openSubtitlesLogin(_ creds: SubtitleCredentials) async throws -> (token: String, base: String)? {
-        lock.lock()
-        let cached = osToken
-        lock.unlock()
+        let cached = lock.withLock { osToken }
         if let cached { return cached }
         guard !creds.openSubtitlesUser.isEmpty, !creds.openSubtitlesPassword.isEmpty else { return nil }
         let req = osRequest(URL(string: "https://api.opensubtitles.com/api/v1/login")!, creds: creds, method: "POST",
@@ -269,7 +267,7 @@ final class OnlineSubtitles: @unchecked Sendable {
         guard let token = json["token"] as? String else { return nil }
         let base = (json["base_url"] as? String).flatMap { $0.nilIfBlank } ?? "api.opensubtitles.com"
         let value = (token, base)
-        lock.lock(); osToken = value; lock.unlock()
+        lock.withLock { osToken = value }
         return value
     }
 

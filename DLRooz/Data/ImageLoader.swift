@@ -24,21 +24,20 @@ final class ImageLoader: @unchecked Sendable {
 
     func load(_ url: URL) async -> UIImage? {
         if let img = cached(url) { return img }
-        lock.lock()
-        if let t = inFlight[url] {
-            lock.unlock()
-            return await t.value
+        let (task, isNew): (Task<UIImage?, Never>, Bool) = lock.withLock {
+            if let t = inFlight[url] { return (t, false) }
+            let t = Task<UIImage?, Never> { [session, jar] in
+                var req = URLRequest(url: url)
+                if let cookie = jar?.header(for: url) { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
+                guard let result = try? await session.data(for: req), let img = UIImage(data: result.0) else { return nil }
+                return img.preparingForDisplay() ?? img
+            }
+            inFlight[url] = t
+            return (t, true)
         }
-        let task = Task<UIImage?, Never> { [session, jar] in
-            var req = URLRequest(url: url)
-            if let cookie = jar?.header(for: url) { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
-            guard let result = try? await session.data(for: req), let img = UIImage(data: result.0) else { return nil }
-            return img.preparingForDisplay() ?? img
-        }
-        inFlight[url] = task
-        lock.unlock()
+        if !isNew { return await task.value }
         let img = await task.value
-        lock.lock(); inFlight[url] = nil; lock.unlock()
+        lock.withLock { inFlight[url] = nil }
         if let img { memory.setObject(img, forKey: url as NSURL) }
         return img
     }
