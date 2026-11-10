@@ -59,6 +59,48 @@ struct RatingBadge: View {
     }
 }
 
+/// Rotten Tomatoes Tomatometer: red tomato when fresh (60% and up), green splat when rotten.
+struct TomatoBadge: View {
+    let value: String
+
+    private var fresh: Bool { (Int(value.filter(\.isNumber)) ?? 0) >= 60 }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(fresh ? "🍅" : "🤢").font(.system(size: 20))
+            Text(value).font(.system(size: 22, weight: .bold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(fresh ? Color(red: 0.86, green: 0.16, blue: 0.10) : Color(red: 0.36, green: 0.62, blue: 0.20),
+                    in: RoundedRectangle(cornerRadius: 8))
+        .environment(\.layoutDirection, .leftToRight)
+    }
+}
+
+/// Metacritic score (the site's «امتیاز منتقدین»).
+struct MetacriticBadge: View {
+    let value: String
+
+    private var color: Color {
+        let n = Int(value.before("/").filter(\.isNumber)) ?? 0
+        if n >= 61 { return Color(red: 0.40, green: 0.80, blue: 0.20) }
+        if n >= 40 { return Color(red: 1.0, green: 0.80, blue: 0.20) }
+        return Color(red: 1.0, green: 0.0, blue: 0.0)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("Metacritic").font(.system(size: 17, weight: .heavy))
+            Text(value.before("/")).font(.system(size: 22, weight: .bold))
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(color, in: RoundedRectangle(cornerRadius: 8))
+        .environment(\.layoutDirection, .leftToRight)
+    }
+}
+
 /// A titled horizontal row of cards.
 struct CardRow<Item: Identifiable, Card: View>: View {
     let title: String
