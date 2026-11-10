@@ -14,6 +14,17 @@ struct ExternalScores: Codable, Equatable {
 final class ExternalRatings {
     static let shared = ExternalRatings()
     static let keychainKey = "ratings.omdb.key"
+    /// Optional built-in OMDb key, injected at build time (OMDB_API_KEY build setting -> Info.plist),
+    /// so it never lives in the repository. Used when no key is entered in Settings.
+    static var builtInKey: String {
+        let v = (Bundle.main.object(forInfoDictionaryKey: "OMDbAPIKey") as? String ?? "").trimmingCharacters(in: .whitespaces)
+        return v.hasPrefix("$(") ? "" : v
+    }
+    /// The key from Settings, or the built-in one.
+    static var activeKey: String {
+        let own = Keychain.string(for: keychainKey)
+        return own.isEmpty ? builtInKey : own
+    }
     private let cacheKey = "ratings.omdb.cache"
     private var cache: [String: ExternalScores]
 
@@ -26,11 +37,11 @@ final class ExternalRatings {
         }
     }
 
-    var isConfigured: Bool { !Keychain.string(for: Self.keychainKey).isEmpty }
+    var isConfigured: Bool { !Self.activeKey.isEmpty }
 
     func scores(imdbID: String) async -> ExternalScores? {
         if let hit = cache[imdbID], Date().timeIntervalSince(hit.fetchedAt) < 7 * 86_400 { return hit }
-        let key = Keychain.string(for: Self.keychainKey)
+        let key = Self.activeKey
         guard !key.isEmpty, var c = URLComponents(string: "https://www.omdbapi.com/") else { return nil }
         c.queryItems = [URLQueryItem(name: "apikey", value: key), URLQueryItem(name: "i", value: imdbID)]
         guard let url = c.url, let result = try? await URLSession.shared.data(from: url),

@@ -48,7 +48,7 @@ struct SettingsView: View {
                     SettingsHeader(L("امتیازها", "Ratings"))
                     NavigationLink(value: Route.ratingSources) {
                         SettingsRowLabel(title: "Rotten Tomatoes",
-                                         value: settings.omdbKey.isEmpty ? L("کلید OMDb لازم است", "Needs an OMDb key") : L("فعال", "On"))
+                                         value: settings.omdbKey.isEmpty ? (ExternalRatings.builtInKey.isEmpty ? L("کلید OMDb لازم است", "Needs an OMDb key") : L("فعال (کلید داخلی)", "On (built-in key)")) : L("فعال", "On"))
                     }
 
                     SettingsHeader(L("برنامه", "App"))
