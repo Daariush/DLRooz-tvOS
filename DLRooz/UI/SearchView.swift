@@ -10,7 +10,10 @@ struct SearchView: View {
     @State private var error: String?
     @State private var recent = LocalPrefs.recentSearches
 
-    private let columns = Array(repeating: GridItem(.fixed(Theme.posterSize.width), spacing: 60), count: 5)
+    /// tvOS puts the keyboard in a column beside the results (on the right in Persian), so the grid fits
+    /// as many posters as the remaining width allows instead of a fixed five.
+    private let columns = [GridItem(.adaptive(minimum: Theme.posterSize.width, maximum: Theme.posterSize.width),
+                                    spacing: 48, alignment: .top)]
 
     var body: some View {
         ScrollView(.vertical) {
@@ -36,12 +39,14 @@ struct SearchView: View {
                 } else if results.isEmpty {
                     Text(L("نتیجه‌ای پیدا نشد", "No results")).foregroundStyle(Theme.secondaryText)
                 } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 60) {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 56) {
                         ForEach(results) { PosterCard(card: $0) }
                     }
                 }
             }
-            .padding(.horizontal, 80)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 48)
+            .padding(.vertical, 30)
         }
         .searchable(text: $query, prompt: L("فیلم، سریال…", "Movies, series…"))
         .task(id: query) {
