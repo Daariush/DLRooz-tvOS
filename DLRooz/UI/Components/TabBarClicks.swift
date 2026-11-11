@@ -29,11 +29,17 @@ struct TabBarClickObserver: UIViewControllerRepresentable {
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
-            attach()
+            attach(retries: 10)
         }
 
-        private func attach() {
-            guard let tabBar = findTabBarController()?.tabBar else { return }
+        private func attach(retries: Int) {
+            guard let tabBar = findTabBarController()?.tabBar else {
+                // The tab bar controller may appear a moment after this probe.
+                if retries > 0 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.attach(retries: retries - 1) }
+                }
+                return
+            }
             // One recognizer for the whole app; later probes just take over the callback.
             if let existing = tabBar.gestureRecognizers?.first(where: { $0.name == Self.name }) {
                 existing.removeTarget(nil, action: nil)
