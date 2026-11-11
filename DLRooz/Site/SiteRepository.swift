@@ -57,8 +57,10 @@ final class SiteRepository: @unchecked Sendable {
     }
 
     /// `state` is one of `watch`, `favorite`, `watched`. It toggles on the site, so it is never retried.
-    func toggleWatchlist(postId: Int, state: String = "watch") async throws {
-        _ = try await authed { try await self.http.get("/json/userWatchlist/\(postId)/\(state)/", retry: false) }
+    func toggleWatchlist(postId: Int, state: String = "watch", from page: String? = nil) async throws {
+        _ = try await authed {
+            try await self.http.get("/json/userWatchlist/\(postId)/\(state)/", retry: false, ajaxFrom: page ?? "/")
+        }
     }
 
     /// A site subtitle file (needs the session cookies), decoded to text.

@@ -70,7 +70,7 @@ struct TitleDetailView: View {
                 if ref.kind == .series { episodes(d) }
                 if !d.suggestions.isEmpty {
                     CardRow(title: L("آثار پیشنهادی", "You May Also Like"), items: d.suggestions.map { SuggestionItem(ref: $0, poster: d.suggestionPosters[$0]) }) { s in
-                        PosterCard(ref: s.ref, title: s.ref.slug.replacingOccurrences(of: "-", with: " ").capitalized, posterHash: s.poster)
+                        PosterCard(ref: s.ref, title: s.ref.displayName, posterHash: s.poster)
                     }
                     .padding(.horizontal, -80)
                 }
@@ -193,7 +193,7 @@ struct TitleDetailView: View {
             let d = try await model.site.title(ref)
             dubbed = !d.catalog.dub.isEmpty && LocalPrefs.dubbed(ref)
             detail = d
-            RatingStore.shared.remember(ref, score: d.card.imdb?.score)
+            RatingStore.shared.remember(ref, score: d.card.imdb?.score, title: d.card.title)
             inWatchlist = d.inWatchlist
             season = defaultSeason(d)
             error = nil
@@ -283,7 +283,7 @@ struct TitleDetailView: View {
         Task {
             defer { watchlistBusy = false }
             do {
-                try await model.site.toggleWatchlist(postId: ref.postId)
+                try await model.site.toggleWatchlist(postId: ref.postId, from: ref.path)
                 if let confirmed = try? await model.site.title(ref).inWatchlist {
                     inWatchlist = confirmed
                     if confirmed != wanted {

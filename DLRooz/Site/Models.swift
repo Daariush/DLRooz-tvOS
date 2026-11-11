@@ -11,6 +11,16 @@ struct TitleRef: Hashable, Codable, Sendable {
 
     var path: String { "/post/\(kind.rawValue)/\(postId)/\(slug)/" }
 
+    /// A readable stand-in name from the URL slug, until the real title is known:
+    /// "the-last-of-us-2023" → "The Last Of Us".
+    var displayName: String {
+        let raw = (slug.removingPercentEncoding ?? slug)
+            .replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
+        var words = raw.split(separator: " ").map(String.init)
+        if words.count > 1, let last = words.last, last.count == 4, Int(last) != nil { words.removeLast() }
+        return words.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
+
     private static let pathRx = Rx(#"/post/(film|series)/(\d+)/([^/?#]+)/?"#)
 
     static func fromPath(_ raw: String) -> TitleRef? {
@@ -48,7 +58,7 @@ struct TitleCard: Hashable, Codable, Identifiable, Sendable {
     var id: TitleRef { ref }
 
     static func minimal(_ ref: TitleRef, title: String? = nil, posterHash: String? = nil) -> TitleCard {
-        TitleCard(ref: ref, title: title ?? ref.slug.replacingOccurrences(of: "-", with: " ").capitalized, year: nil,
+        TitleCard(ref: ref, title: title ?? ref.displayName, year: nil,
                   posterHash: posterHash, durationMin: nil, imdb: nil, criticsScore: nil, genres: [], countries: [],
                   director: nil, stars: [], synopsis: nil, episodeLabel: nil, status: nil)
     }

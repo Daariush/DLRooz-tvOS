@@ -185,9 +185,10 @@ struct ContinueItem: Identifiable {
 struct ContinueCard: View {
     let item: ContinueItem
     @State private var score: Double?
+    @State private var name: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.cardTitleGap) {
             NavigationLink(value: Route.title(item.ref, backdropHash: nil)) {
                 ZStack(alignment: .bottom) {
                     RemoteImage(url: Theme.posterURL(item.posterHash))
@@ -203,15 +204,20 @@ struct ContinueCard: View {
                 .clipped()
             }
             .buttonStyle(.card)
-            .task(id: item.ref) { score = await RatingStore.shared.rating(for: item.ref) }
-            Text(item.entry?.title ?? item.ref.slug.replacingOccurrences(of: "-", with: " ").capitalized)
-                .font(.callout).lineLimit(1)
-                .environment(\.layoutDirection, .leftToRight)
-                .frame(width: Theme.posterSize.width, alignment: .leading)
-            if let e = item.entry, e.isSeries {
-                Text(UIStrings.episodeLabel(season: e.season, episode: e.episode)).font(.caption)
-                    .foregroundStyle(Theme.secondaryText)
+            .task(id: item.ref) {
+                score = await RatingStore.shared.rating(for: item.ref)
+                if item.entry?.title == nil { name = await RatingStore.shared.title(for: item.ref) }
             }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.entry?.title ?? name ?? item.ref.displayName)
+                    .font(.callout).lineLimit(1)
+                    .environment(\.layoutDirection, .leftToRight)
+                if let e = item.entry, e.isSeries {
+                    Text(UIStrings.episodeLabel(season: e.season, episode: e.episode)).font(.caption)
+                        .foregroundStyle(Theme.secondaryText)
+                }
+            }
+            .frame(width: Theme.posterSize.width, alignment: .leading)
         }
     }
 }

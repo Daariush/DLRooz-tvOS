@@ -8,6 +8,8 @@ enum Theme {
     /// Poster size in points (tvOS renders 1 pt = 1 px at 1080p, 2 px at 4K).
     static let posterSize = CGSize(width: 250, height: 375)
     static let landscapeSize = CGSize(width: 420, height: 236)
+    /// Space between a card and its title, enough for the focused card's lift and shadow.
+    static let cardTitleGap: CGFloat = 34
 
     static func posterURL(_ hash: String?, w: Int = 500, h: Int = 750) -> URL? {
         hash.flatMap { ImageURLs.image($0, w: w, h: h) }

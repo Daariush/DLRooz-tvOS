@@ -9,9 +9,13 @@ struct PosterCard: View {
     /// IMDb score when the list already carries it; otherwise it is looked up (and cached) from the title page.
     var rating: Double?
     @State private var fetched: Double?
+    /// The real title, looked up when the list only gave the URL slug.
+    @State private var realTitle: String?
+
+    private var needsTitle: Bool { title == ref.displayName || title == ref.slug }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.cardTitleGap) {
             NavigationLink(value: Route.title(ref, backdropHash: nil)) {
                 RemoteImage(url: Theme.posterURL(posterHash))
                     .frame(width: Theme.posterSize.width, height: Theme.posterSize.height)
@@ -21,17 +25,18 @@ struct PosterCard: View {
                     .clipped()
             }
             .buttonStyle(.card)
-            Text(title).font(.callout).lineLimit(1)
-                .environment(\.layoutDirection, .leftToRight)
-                .frame(width: Theme.posterSize.width, alignment: .leading)
-            if let subtitle {
-                Text(subtitle).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
-                    .frame(width: Theme.posterSize.width, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(realTitle ?? title).font(.callout).lineLimit(1)
+                    .environment(\.layoutDirection, .leftToRight)
+                if let subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                }
             }
+            .frame(width: Theme.posterSize.width, alignment: .leading)
         }
         .task(id: ref) {
-            guard rating == nil else { return }
-            fetched = await RatingStore.shared.rating(for: ref)
+            if rating == nil { fetched = await RatingStore.shared.rating(for: ref) }
+            if needsTitle { realTitle = await RatingStore.shared.title(for: ref) }
         }
     }
 }

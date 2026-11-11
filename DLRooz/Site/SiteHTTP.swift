@@ -22,6 +22,10 @@ final class SiteHTTP: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
+        // Never answer from a local cache: pages change per user (My List, the watchlist button), and a
+        // cached toggle URL would never reach the site.
+        config.urlCache = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 30
         config.httpAdditionalHeaders = ["User-Agent": SiteConfig.userAgent, "Accept-Language": "fa,en;q=0.8"]
@@ -33,10 +37,18 @@ final class SiteHTTP: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     }
 
     /// Pass `retry: false` for GETs that change server state (toggles).
-    func get(_ path: String, requiresAuth: Bool = true, retry: Bool = true, timeout: TimeInterval = 8) async throws -> SiteResponse {
+    /// `ajaxFrom`: the page path a browser would call this from; sends it as Referer with the XHR header,
+    /// as the site's own JSON endpoints expect.
+    func get(_ path: String, requiresAuth: Bool = true, retry: Bool = true, timeout: TimeInterval = 8,
+             ajaxFrom: String? = nil) async throws -> SiteResponse {
         guard let u = url(path) else { throw SiteError.parse("url") }
         var req = URLRequest(url: u)
         req.timeoutInterval = timeout
+        if let ajaxFrom {
+            req.setValue(SiteConfig.baseString + ajaxFrom, forHTTPHeaderField: "Referer")
+            req.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+            req.setValue("application/json, text/javascript, */*; q=0.01", forHTTPHeaderField: "Accept")
+        }
         let attempts = retry ? maxAttempts : 1
         var attempt = 1
         while true {

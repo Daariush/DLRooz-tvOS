@@ -18,7 +18,10 @@ enum CardParser {
             if heading.isEmpty { heading = h.txt }
         }
         let m = titleYear.firstMatch(in: heading)
-        let title = m?[1]?.nilIfBlank ?? heading.nilIfBlank ?? ref.slug
+        let title = m?[1]?.nilIfBlank ?? heading.nilIfBlank
+            ?? link.a("title").trimmed.nilIfBlank
+            ?? el.first("img[alt]")?.a("alt").trimmed.nilIfBlank
+            ?? ref.displayName
         let year = m?[2].flatMap { Int($0) }
         let poster = el.all("img").lazy
             .map { $0.imageSource }
