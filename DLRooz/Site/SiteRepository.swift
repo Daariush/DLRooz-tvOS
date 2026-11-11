@@ -19,7 +19,14 @@ final class SiteRepository: @unchecked Sendable {
 
     /// Page 1 is `path` itself; page N inserts `N/` before any query string.
     func list(_ path: String, page: Int = 1) async throws -> ListPage {
-        try await authed {
+        if path == SiteConfig.watchlistPath {
+            // My List is one page with film and series sections, not a paged archive.
+            guard page <= 1 else { return ListPage(items: [], page: page, lastPage: 1) }
+            return try await authed {
+                ListPage(items: try WatchlistParser.parse(try await self.http.get(path).body), page: 1, lastPage: 1)
+            }
+        }
+        return try await authed {
             var target = path
             if page > 1 {
                 var base = path.before("?")

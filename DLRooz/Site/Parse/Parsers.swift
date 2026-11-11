@@ -143,6 +143,50 @@ enum ListParser {
     }
 }
 
+/// «لیست من» (/user/watchlist/): one page with a films section (#filmList) and a series section
+/// (#seriesList), switched by tabs in the browser. Each holds poster tiles (`.ty-compact-list`) tagged with
+/// the lists they're on (watchList / favoriteList / watchedList); only the watchlist ones are taken.
+/// Tiles carry no title text, so names come from the section's "download list" CSV, in the same order.
+enum WatchlistParser {
+    private static let csvRx = Rx(#"downloadCSV\('((?:[^'\\]|\\.)*)'\)"#)
+    private static let yearRx = Rx(#"^(.*?)\s*\((\d{4})\)\s*$"#)
+
+    static func parse(_ html: String) throws -> [TitleCard] {
+        let doc = try Soup.parse(html)
+        var cards: [TitleCard] = []
+        for section in ["#seriesList", "#filmList"] {
+            guard let box = doc.first(section) else { continue }
+            let tiles = box.all(".ty-compact-list")
+            let names = csvNames(box)
+            for (i, tile) in tiles.enumerated() where tile.has("watchList") {
+                guard let link = tile.first("a[href*=/post/]"), let ref = TitleRef.fromPath(link.a("href")) else { continue }
+                let poster = tile.first("img").flatMap { ImageURLs.hashOf($0.imageSource) }
+                    ?? tile.first("[style*=/img/]").flatMap { ImageURLs.hashOf($0.a("style")) }
+                var card = TitleCard.minimal(ref, posterHash: poster)
+                if names.count == tiles.count, let m = yearRx.firstMatch(in: names[i]) {
+                    card.title = m[1]?.nilIfBlank ?? card.title
+                    card.year = m[2].flatMap { Int($0) }
+                } else if names.count == tiles.count, let n = names[i].nilIfBlank {
+                    card.title = n
+                }
+                cards.append(card)
+            }
+        }
+        return unique(cards)
+    }
+
+    /// "Title,On What Lists\nName (2026),watchList\n…" → ["Name (2026)", …]
+    private static func csvNames(_ box: Element) -> [String] {
+        guard let onclick = box.first("[onclick*=downloadCSV]")?.a("onclick"),
+              let raw = csvRx.firstMatch(in: onclick)?[1] ?? nil else { return [] }
+        let text = raw.replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\'", with: "'")
+        return text.components(separatedBy: "\n").dropFirst().map { line in
+            guard let comma = line.range(of: ",", options: .backwards) else { return line.trimmed }
+            return String(line[..<comma.lowerBound]).trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        }
+    }
+}
+
 /// Only the «فیلم و سریال» result block; the page's sidebar lists are ignored.
 enum SearchParser {
     static func parse(_ html: String) throws -> [TitleCard] {
