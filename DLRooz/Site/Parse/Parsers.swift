@@ -109,10 +109,37 @@ enum ListParser {
     static func parse(_ html: String) throws -> ListPage { parse(try Soup.parse(html)) }
 
     static func parse(_ doc: Document) -> ListPage {
-        let items = unique(doc.all(".postMeta").compactMap(CardParser.parse))
+        var items = unique(doc.all(".postMeta").compactMap(CardParser.parse))
+        // Some pages (My List) lay titles out as bare poster links instead of `.postMeta` cards.
+        if items.isEmpty { items = posterLinks(doc) }
         let page = doc.first(".pagination .page-item.active").flatMap { Int(PersianText.digits($0.txt).trimmed) } ?? 1
         let last = doc.all(".pagination .page-link").compactMap { Int(PersianText.digits($0.txt).trimmed) }.max() ?? page
         return ListPage(items: items, page: page, lastPage: max(page, last))
+    }
+
+    /// Every `/post/` link with a poster image outside the page's header, menus, sidebar and footer.
+    /// Titles come from the link or image text; when missing, cards look the real title up later.
+    static func posterLinks(_ doc: Document) -> [TitleCard] {
+        var seen = Set<TitleRef>()
+        return doc.all("a[href*=/post/]").compactMap { a in
+            guard let ref = TitleRef.fromPath(a.a("href")), !inChrome(a) else { return nil }
+            let img = a.first("img") ?? a.up?.first("img")
+            guard let img, let hash = ImageURLs.hashOf(img.imageSource), seen.insert(ref).inserted else { return nil }
+            let name = a.a("title").trimmed.nilIfBlank ?? img.a("alt").trimmed.nilIfBlank ?? a.txt.nilIfBlank
+            return TitleCard.minimal(ref, title: name, posterHash: hash)
+        }
+    }
+
+    private static func inChrome(_ el: Element) -> Bool {
+        var node = el.up
+        while let n = node {
+            let tag = n.tagName()
+            if ["nav", "header", "footer", "aside"].contains(tag) { return true }
+            let cls = (try? n.className()) ?? ""
+            if cls.contains("sidebar") || cls.contains("navbar") || cls.contains("dropdown") || cls.contains("swiper") { return true }
+            node = n.up
+        }
+        return false
     }
 }
 
