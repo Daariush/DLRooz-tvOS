@@ -67,18 +67,22 @@ struct TitleDetailView: View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 50) {
                 header(d).padding(.top, 260)
-                if ref.kind == .series { episodes(d) }
+                if ref.kind == .series { episodes(d).padding(.horizontal, -Self.margin) }
                 if !d.suggestions.isEmpty {
                     CardRow(title: L("آثار پیشنهادی", "You May Also Like"), items: d.suggestions.map { SuggestionItem(ref: $0, poster: d.suggestionPosters[$0]) }) { s in
                         PosterCard(ref: s.ref, title: s.ref.displayName, posterHash: s.poster)
                     }
-                    .padding(.horizontal, -80)
+                    .padding(.horizontal, -Self.margin)
                 }
             }
-            .padding(.horizontal, 80)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Self.margin)
             .padding(.bottom, 60)
         }
     }
+
+    /// Page margin on both sides; the season and episode rows scroll edge to edge and start at it.
+    private static let margin: CGFloat = 80
 
     private func header(_ d: TitleDetail) -> some View {
         let c = d.card
@@ -144,6 +148,7 @@ struct TitleDetailView: View {
             }
             .disabled(watchlistBusy)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .focusSection()
     }
 
@@ -162,7 +167,9 @@ struct TitleDetailView: View {
                         }
                     }
                     .padding(.vertical, 16)
+                    .padding(.horizontal, Self.margin)
                 }
+                .frame(maxWidth: .infinity)
                 .focusSection()
             }
             if let current {
@@ -185,14 +192,17 @@ struct TitleDetailView: View {
                             }
                         }
                         .padding(.vertical, 30)
+                        .padding(.horizontal, Self.margin)
                     }
                     .onAppear {
                         if let next = primaryEpisode(d), next.season == current.number { proxy.scrollTo(next.streamId, anchor: .center) }
                     }
                 }
+                .frame(maxWidth: .infinity)
                 .focusSection()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Logic
