@@ -18,8 +18,16 @@ struct ListGridView: View {
     @State private var error: String?
     @State private var chips: [SiteCategory] = []
     @State private var selectedPath: String?
+    @State private var filters = ListFilters()
 
-    private var currentPath: String { selectedPath ?? path }
+    /// Filters (Films and Series pages) go through the site's advanced search; otherwise the chosen
+    /// category, or the page's own list.
+    private var currentPath: String {
+        if let categories, categories != .both, !filters.isDefault {
+            return filters.path(type: categories == .series ? "series" : "film")
+        }
+        return selectedPath ?? path
+    }
     private let columns = Array(repeating: GridItem(.fixed(Theme.posterSize.width), spacing: 60), count: 5)
 
     var body: some View {
@@ -27,6 +35,7 @@ struct ListGridView: View {
             VStack(alignment: .leading, spacing: 30) {
                 Text(title).font(.title2.bold()).padding(.horizontal, 80)
                 if !chips.isEmpty { chipRow }
+                if categories != nil { filterRow }
                 if let error, items.isEmpty {
                     ErrorView(message: error) { Task { await reload() } }.frame(height: 500)
                 } else if items.isEmpty && !loading && page > 0 {
@@ -62,13 +71,53 @@ struct ListGridView: View {
 
     private func chip(_ label: String, path: String?) -> some View {
         Button {
-            guard selectedPath != path else { return }
+            guard selectedPath != path || !filters.isDefault else { return }
             selectedPath = path
+            filters = ListFilters()
             Task { await reload() }
         } label: {
             Text(label)
         }
-        .buttonStyle(TVButtonStyle(selected: selectedPath == path))
+        .buttonStyle(TVButtonStyle(selected: selectedPath == path && filters.isDefault))
+    }
+
+    /// Genre, year, IMDb minimum and sort order (incl. critics' score). Choosing one switches the grid
+    /// to the site's advanced search; choosing a category chip clears them.
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 20) {
+                FilterMenu(options: [nil] + ListFilters.genres.map { Optional($0.id) }, selection: filterBinding(\.genre),
+                           label: ListFilters.genreLabel, icon: "theatermasks")
+                FilterMenu(options: ListFilters.YearRange.options, selection: filterBinding(\.years),
+                           label: { $0.label }, icon: "calendar")
+                FilterMenu(options: ListFilters.imdbOptions, selection: filterBinding(\.minIMDb),
+                           label: ListFilters.imdbLabel, icon: "star")
+                FilterMenu(options: ListFilters.Sort.allCases, selection: filterBinding(\.sort),
+                           label: { L("مرتب‌سازی: ", "Sort: ") + $0.label }, icon: "arrow.up.arrow.down")
+                if !filters.isDefault {
+                    Button {
+                        filters = ListFilters()
+                        Task { await reload() }
+                    } label: {
+                        Label(L("حذف فیلترها", "Clear filters"), systemImage: "xmark")
+                    }
+                }
+            }
+            .padding(.horizontal, 80).padding(.vertical, 10)
+        }
+        .focusSection()
+    }
+
+    private func filterBinding<V: Equatable>(_ key: WritableKeyPath<ListFilters, V>) -> Binding<V> {
+        Binding(
+            get: { filters[keyPath: key] },
+            set: { value in
+                guard filters[keyPath: key] != value else { return }
+                filters[keyPath: key] = value
+                selectedPath = nil
+                Task { await reload() }
+            }
+        )
     }
 
     private func reload() async {
