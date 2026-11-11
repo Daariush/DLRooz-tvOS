@@ -28,6 +28,9 @@ final class WatchStore: ObservableObject {
     private let key = "watch.entries"
     private let limit = 400
     @Published private(set) var entries: [String: WatchEntry] = [:]
+    /// Episodes marked watched (true) or unwatched (false) by hand; wins over progress and the site.
+    @Published private(set) var marks: [String: Bool] = [:]
+    private let marksKey = "watch.marks"
 
     static let resumeMin: Double = 30
     static let resumeRewind: Double = 3
@@ -38,6 +41,24 @@ final class WatchStore: ObservableObject {
            let decoded = try? JSONDecoder().decode([String: WatchEntry].self, from: data) {
             entries = decoded
         }
+        marks = UserDefaults.standard.dictionary(forKey: marksKey) as? [String: Bool] ?? [:]
+    }
+
+    /// Watched state of an episode: a hand mark first, else the site's flag or local progress.
+    func isWatched(_ streamId: String, playedOnSite: Bool) -> Bool {
+        marks[streamId] ?? (playedOnSite || isWatched(streamId))
+    }
+
+    func mark(_ streamId: String, watched: Bool) {
+        marks[streamId] = watched
+        if !watched, var e = entries[streamId] {
+            e.finished = false
+            e.position = 0
+            entries[streamId] = e
+            persist()
+        }
+        if marks.count > 2000 { marks = [streamId: watched] }
+        UserDefaults.standard.set(marks, forKey: marksKey)
     }
 
     func entry(_ streamId: String) -> WatchEntry? { entries[streamId] }
@@ -60,6 +81,8 @@ final class WatchStore: ObservableObject {
 
     func clear() {
         entries = [:]
+        marks = [:]
+        UserDefaults.standard.removeObject(forKey: marksKey)
         persist()
     }
 

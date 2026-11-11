@@ -152,13 +152,19 @@ enum WatchlistParser {
     private static let yearRx = Rx(#"^(.*?)\s*\((\d{4})\)\s*$"#)
 
     static func parse(_ html: String) throws -> [TitleCard] {
+        unique(try entries(html).filter { $0.lists.contains("watchList") }.map(\.card))
+    }
+
+    /// Every tile with the lists it is on: "watchList", "favoriteList", "watchedList".
+    static func entries(_ html: String) throws -> [(card: TitleCard, lists: Set<String>)] {
         let doc = try Soup.parse(html)
-        var cards: [TitleCard] = []
+        var out: [(card: TitleCard, lists: Set<String>)] = []
         for section in ["#seriesList", "#filmList"] {
             guard let box = doc.first(section) else { continue }
             let tiles = box.all(".ty-compact-list")
             let names = csvNames(box)
-            for (i, tile) in tiles.enumerated() where tile.has("watchList") {
+            for (i, tile) in tiles.enumerated() {
+                let lists = Set(["watchList", "favoriteList", "watchedList"].filter { tile.has($0) })
                 guard let link = tile.first("a[href*=/post/]"), let ref = TitleRef.fromPath(link.a("href")) else { continue }
                 let poster = tile.first("img").flatMap { ImageURLs.hashOf($0.imageSource) }
                     ?? tile.first("[style*=/img/]").flatMap { ImageURLs.hashOf($0.a("style")) }
@@ -169,10 +175,10 @@ enum WatchlistParser {
                 } else if names.count == tiles.count, let n = names[i].nilIfBlank {
                     card.title = n
                 }
-                cards.append(card)
+                out.append((card, lists))
             }
         }
-        return unique(cards)
+        return out
     }
 
     /// "Title,On What Lists\nName (2026),watchList\n…" → ["Name (2026)", …]
@@ -282,9 +288,13 @@ enum TitleParser {
         if let b = watchButton {
             if b.has("btn-warning") { inWatchlist = true } else if b.has("btn-gray") { inWatchlist = false }
         }
+        var isWatched: Bool?
+        if let b = doc.first("button.watchlist[value2=watched]") {
+            if b.has("btn-warning") { isWatched = true } else if b.has("btn-gray") { isWatched = false }
+        }
         return TitleDetail(card: card, channel: channel, awards: awards, catalog: catalog, suggestions: suggestions,
                            suggestionPosters: posters, trailerThumbHash: trailer, inWatchlist: inWatchlist,
-                           imdbID: imdbRx.firstMatch(in: html)?[1])
+                           isWatched: isWatched, imdbID: imdbRx.firstMatch(in: html)?[1])
     }
 
     /// `STREAM` is `{"main": seasons, "dub"?: seasons}`; films use arrays, series objects keyed by number.

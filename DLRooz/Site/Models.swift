@@ -162,6 +162,8 @@ struct TitleDetail: Sendable {
     let trailerThumbHash: String?
     /// Whether the title is on the user's watchlist, as the page renders it; nil when the page doesn't say.
     let inWatchlist: Bool?
+    /// Whether the title is on the user's «دیده شده» (watched) list; nil when the page doesn't say.
+    var isWatched: Bool? = nil
     /// e.g. "tt22202452"; used to find subtitles on SubDL / SubSource / OpenSubtitles.
     let imdbID: String?
 }

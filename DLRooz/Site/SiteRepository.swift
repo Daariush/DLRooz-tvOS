@@ -18,6 +18,11 @@ final class SiteRepository: @unchecked Sendable {
     }
 
     /// Page 1 is `path` itself; page N inserts `N/` before any query string.
+    /// Everything on the user's lists (watch / favourite / watched), from the My List page.
+    func userLists() async throws -> [(card: TitleCard, lists: Set<String>)] {
+        try await authed { try WatchlistParser.entries(try await self.http.get(SiteConfig.watchlistPath).body) }
+    }
+
     func list(_ path: String, page: Int = 1) async throws -> ListPage {
         if path == SiteConfig.watchlistPath {
             // My List is one page with film and series sections, not a paged archive.

@@ -11,6 +11,10 @@ struct MainTabView: View {
     @State private var tab = 0
 
     var body: some View {
+        tabs.task { await TitleMarks.shared.refresh() }
+    }
+
+    private var tabs: some View {
         TabView(selection: $tab) {
             NavStack { HomeView() }
                 .tabItem { Label(L("خانه", "Home"), systemImage: "house") }.tag(0)

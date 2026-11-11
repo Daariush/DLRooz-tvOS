@@ -23,6 +23,7 @@ final class AppModel: ObservableObject {
         site = SiteRepository(http: http, auth: auth)
         ImageLoader.shared.jar = jar
         RatingStore.shared.site = site
+        TitleMarks.shared.site = site
         phase = auth.isLoggedIn ? .signedIn : .signedOut
         username = auth.storedUsername
         if let data = UserDefaults.standard.data(forKey: "home.cache") {
@@ -42,6 +43,7 @@ final class AppModel: ObservableObject {
         await auth.logout()
         cachedHome = nil
         UserDefaults.standard.removeObject(forKey: "home.cache")
+        TitleMarks.shared.clear()
         username = nil
         phase = .signedOut
     }

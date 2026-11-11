@@ -11,6 +11,7 @@ struct PosterCard: View {
     @State private var fetched: Double?
     /// The real title, looked up when the list only gave the URL slug.
     @State private var realTitle: String?
+    @ObservedObject private var marks = TitleMarks.shared
 
     private var needsTitle: Bool { title == ref.displayName || title == ref.slug }
 
@@ -22,9 +23,13 @@ struct PosterCard: View {
                     .overlay(alignment: .topLeading) {
                         if let score = rating ?? fetched, score > 0 { RatingBadge(score: score).padding(10) }
                     }
+                    .overlay(alignment: .topTrailing) {
+                        if marks.isWatched(ref) { WatchedBadge().padding(10) }
+                    }
                     .clipped()
             }
             .buttonStyle(.card)
+            .contextMenu { WatchedMenuButton(ref: ref) }
             VStack(alignment: .leading, spacing: 4) {
                 Text(realTitle ?? title).font(.callout).lineLimit(1)
                     .environment(\.layoutDirection, .leftToRight)
@@ -45,6 +50,33 @@ extension PosterCard {
     init(card: TitleCard) {
         self.init(ref: card.ref, title: card.title, posterHash: card.posterHash,
                   subtitle: card.episodeLabel ?? card.year.map { String($0) }, rating: card.imdb?.score)
+    }
+}
+
+/// Small «watched» mark on a thumbnail.
+struct WatchedBadge: View {
+    var body: some View {
+        Image(systemName: "eye.fill")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(8)
+            .background(Color.black.opacity(0.65), in: Circle())
+    }
+}
+
+/// Long-press menu item on a thumbnail: mark the film or series watched / unwatched on the site.
+struct WatchedMenuButton: View {
+    let ref: TitleRef
+    @ObservedObject private var marks = TitleMarks.shared
+
+    var body: some View {
+        let seen = marks.isWatched(ref)
+        Button {
+            Task { _ = await marks.setWatched(ref, !seen) }
+        } label: {
+            Label(seen ? L("علامت دیده نشده", "Mark as Unwatched") : L("علامت دیده شده", "Mark as Watched"),
+                  systemImage: seen ? "eye.slash" : "eye")
+        }
     }
 }
 

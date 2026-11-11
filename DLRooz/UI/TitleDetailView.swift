@@ -170,8 +170,17 @@ struct TitleDetailView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 30) {
                             ForEach(current.episodes.sorted { $0.number < $1.number }) { ep in
-                                EpisodeTile(episode: ep, watched: ep.played || watch.isWatched(ep.streamId),
+                                let seen = watch.isWatched(ep.streamId, playedOnSite: ep.played)
+                                EpisodeTile(episode: ep, watched: seen,
                                             progress: watch.entry(ep.streamId)?.progress ?? 0) { play(ep) }
+                                    .contextMenu {
+                                        Button {
+                                            watch.mark(ep.streamId, watched: !seen)
+                                        } label: {
+                                            Label(seen ? L("علامت دیده نشده", "Mark as Unwatched") : L("علامت دیده شده", "Mark as Watched"),
+                                                  systemImage: seen ? "eye.slash" : "eye")
+                                        }
+                                    }
                                     .id(ep.streamId)
                             }
                         }
@@ -195,6 +204,7 @@ struct TitleDetailView: View {
             detail = d
             RatingStore.shared.remember(ref, score: d.card.imdb?.score, title: d.card.title)
             inWatchlist = d.inWatchlist
+            TitleMarks.shared.note(ref, watched: d.isWatched)
             season = defaultSeason(d)
             error = nil
             try? await Task.sleep(nanoseconds: 150_000_000)

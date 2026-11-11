@@ -186,6 +186,7 @@ struct ContinueCard: View {
     let item: ContinueItem
     @State private var score: Double?
     @State private var name: String?
+    @ObservedObject private var marks = TitleMarks.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.cardTitleGap) {
@@ -204,6 +205,10 @@ struct ContinueCard: View {
                 .clipped()
             }
             .buttonStyle(.card)
+            .overlay(alignment: .topTrailing) {
+                if marks.isWatched(item.ref) { WatchedBadge().padding(10) }
+            }
+            .contextMenu { WatchedMenuButton(ref: item.ref) }
             .task(id: item.ref) {
                 score = await RatingStore.shared.rating(for: item.ref)
                 if item.entry?.title == nil { name = await RatingStore.shared.title(for: item.ref) }
