@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Title page for films and series: full-bleed backdrop, the facts, one adaptive Play button,
-/// "Play with…" for other player apps, original/dub switch, My List, seasons and episodes, suggestions.
+/// (it uses the player chosen in Settings), original/dub switch, My List, seasons and episodes, suggestions.
 struct TitleDetailView: View {
     let ref: TitleRef
     var featuredBackdrop: String?
