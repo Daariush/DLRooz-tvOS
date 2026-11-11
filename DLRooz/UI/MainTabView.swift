@@ -13,7 +13,12 @@ struct MainTabView: View {
     @State private var paths = Array(repeating: NavigationPath(), count: 6)
 
     var body: some View {
-        tabs.task { await TitleMarks.shared.refresh() }
+        tabs
+            .background(TabBarClickObserver { index in
+                guard paths.indices.contains(index) else { return }
+                paths[index] = NavigationPath()
+            }.frame(width: 0, height: 0))
+            .task { await TitleMarks.shared.refresh() }
     }
 
     /// Choosing a tab in the top bar always shows that tab's own page: choosing the tab you're on goes
