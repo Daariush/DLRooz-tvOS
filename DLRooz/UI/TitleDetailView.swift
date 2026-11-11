@@ -125,10 +125,6 @@ struct TitleDetailView: View {
                 }
                 .focused($playFocused)
                 .disabled(starting)
-                Button { chooserEpisode = ep } label: {
-                    Label(L("پخش با…", "Play with…"), systemImage: "arrow.up.forward.app")
-                }
-                .disabled(starting)
             }
             if !d.catalog.dub.isEmpty {
                 Picker(L("صدا", "Audio"), selection: $dubbed) {
