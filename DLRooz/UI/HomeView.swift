@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var watch: WatchStore
+    @ObservedObject private var marks = TitleMarks.shared
     @State private var home: HomePage?
     @State private var extraRows: [ExtraRow] = []
     @State private var error: String?
@@ -91,9 +92,16 @@ struct HomeView: View {
     /// Local progress (newest first), then the site's «recently streamed» titles not already shown.
     @ViewBuilder
     private func continueRow(_ home: HomePage) -> some View {
-        let local = watch.latestPerTitle.filter { !$0.finished || $0.isSeries }.prefix(20)
+        // A title marked watched (long-press → Mark as Watched) leaves the row.
+        let local = watch.latestPerTitle
+            .filter { e in
+                guard !e.finished || e.isSeries else { return false }
+                guard let ref = e.ref else { return true }
+                return !marks.isWatched(ref)
+            }
+            .prefix(20)
         let localRefs = Set(local.compactMap { $0.ref })
-        let server = home.recentlyStreamed.filter { !localRefs.contains($0.ref) }
+        let server = home.recentlyStreamed.filter { !localRefs.contains($0.ref) && !marks.isWatched($0.ref) }
         let items: [ContinueItem] = local.compactMap { e in e.ref.map { ContinueItem(ref: $0, entry: e, posterHash: e.posterHash) } }
             + server.map { ContinueItem(ref: $0.ref, entry: nil, posterHash: $0.posterHash) }
         if !items.isEmpty {
