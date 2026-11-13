@@ -16,6 +16,8 @@ struct TitleDetailView: View {
     @State private var season = 1
     @State private var inWatchlist: Bool?
     @State private var watchlistBusy = false
+    @ObservedObject private var marks = TitleMarks.shared
+    @State private var watchedBusy = false
     @State private var starting = false
     @State private var playError: String?
     @State private var chooserEpisode: Episode?
@@ -65,7 +67,7 @@ struct TitleDetailView: View {
 
     private func content(_ d: TitleDetail) -> some View {
         ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 50) {
+            VStack(alignment: .leading, spacing: Theme.rowSpacing) {
                 header(d).padding(.top, 260)
                 if ref.kind == .series { episodes(d).padding(.horizontal, -Self.margin) }
                 if !d.suggestions.isEmpty {
@@ -77,17 +79,17 @@ struct TitleDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Self.margin)
-            .padding(.bottom, 60)
+            .padding(.bottom, Theme.pageTop)
         }
     }
 
     /// Page margin on both sides; the season and episode rows scroll edge to edge and start at it.
-    private static let margin: CGFloat = 80
+    private static let margin = Theme.margin
 
     private func header(_ d: TitleDetail) -> some View {
         let c = d.card
         return VStack(alignment: .leading, spacing: 22) {
-            Text(c.title).font(.system(size: 64, weight: .bold)).lineLimit(2)
+            PageTitle(c.title)
                 .environment(\.layoutDirection, .leftToRight)
             HStack(spacing: 14) {
                 if let r = c.imdb { RatingBadge(score: r.score) }
@@ -95,54 +97,61 @@ struct TitleDetailView: View {
                 if !d.catalog.dub.isEmpty { Pill(text: L("دوبله", "Dubbed")) }
                 if d.catalog.main.first?.episodes.first?.subtitles.isEmpty == false { Pill(text: L("زیرنویس", "Subtitles")) }
                 if let ch = d.channel { Pill(text: ch) }
-                Text(c.metaLine).font(.callout).foregroundStyle(Theme.secondaryText)
+                if marks.isWatched(ref) { WatchedBadge() }
+                Text(c.metaLine).font(.captionText).foregroundStyle(Theme.secondaryText)
             }
-            if let status = c.status ?? c.episodeLabel { Text(status).font(.callout).foregroundStyle(Theme.secondaryText) }
+            if let status = c.status ?? c.episodeLabel { Text(status).font(.captionText).foregroundStyle(Theme.secondaryText) }
             if let s = c.synopsis {
-                Text(s).font(.body).lineLimit(4).frame(maxWidth: 1100, alignment: .leading)
+                Text(s).font(.bodyText).lineLimit(4).frame(maxWidth: 1100, alignment: .leading)
             }
             if let dir = c.director {
-                Text(L("کارگردان: ", "Director: ") + dir).font(.caption).foregroundStyle(Theme.secondaryText)
+                Text(L("کارگردان: ", "Director: ") + dir).font(.captionText).foregroundStyle(Theme.secondaryText)
             }
             if !c.stars.isEmpty {
-                Text(L("بازیگران: ", "Cast: ") + c.stars.prefix(5).joined(separator: ", ")).font(.caption)
+                Text(L("بازیگران: ", "Cast: ") + c.stars.prefix(5).joined(separator: ", ")).font(.captionText)
                     .foregroundStyle(Theme.secondaryText).lineLimit(1)
             }
-            if let award = d.awards.first { Text("🏆 " + award).font(.caption).foregroundStyle(Theme.secondaryText) }
+            if let award = d.awards.first { Text("🏆 " + award).font(.captionText).foregroundStyle(Theme.secondaryText) }
             actions(d).padding(.top, 16)
         }
     }
 
     private func actions(_ d: TitleDetail) -> some View {
-        HStack(spacing: 30) {
+        // Play, My List and Watched, then the audio choice: all in the one button shape.
+        HStack(spacing: Theme.chipSpacing + 4) {
             if let ep = primaryEpisode(d) {
                 Button { play(ep) } label: {
-                    HStack {
+                    HStack(spacing: 14) {
                         if starting { ProgressView() } else { Image(systemName: "play.fill") }
                         Text(primaryLabel(d, ep))
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 8)
                 }
                 .focused($playFocused)
                 .disabled(starting)
-            }
-            if !d.catalog.dub.isEmpty {
-                Picker(L("صدا", "Audio"), selection: $dubbed) {
-                    Text(L("زبان اصلی", "Original")).tag(false)
-                    Text(L("دوبله فارسی", "Persian dub")).tag(true)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 520)
-                .onChange(of: dubbed) { _, v in
-                    LocalPrefs.setDubbed(ref, v)
-                    season = defaultSeason(d)
-                }
             }
             Button { toggleWatchlist() } label: {
                 Label(inWatchlist == true ? L("در لیست من", "In My List") : L("افزودن به لیست من", "Add to My List"),
                       systemImage: inWatchlist == true ? "bookmark.fill" : "bookmark")
             }
             .disabled(watchlistBusy)
+            // The same action as holding a thumbnail, made visible here.
+            Button { toggleWatched() } label: {
+                let seen = marks.isWatched(ref)
+                Label(seen ? L("دیده شده", "Watched") : L("علامت دیده شده", "Mark as Watched"),
+                      systemImage: seen ? "eye.fill" : "eye")
+            }
+            .disabled(watchedBusy)
+            if !d.catalog.dub.isEmpty {
+                ChoiceChips(options: [false, true], selection: $dubbed) {
+                    $0 ? L("دوبله فارسی", "Persian dub") : L("زبان اصلی", "Original")
+                }
+                .padding(.leading, Theme.chipSpacing)
+                .onChange(of: dubbed) { _, v in
+                    LocalPrefs.setDubbed(ref, v)
+                    season = defaultSeason(d)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .focusSection()
@@ -154,7 +163,7 @@ struct TitleDetailView: View {
         return VStack(alignment: .leading, spacing: 24) {
             if seasons.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 20) {
+                    HStack(spacing: Theme.chipSpacing) {
                         ForEach(seasons) { s in
                             Button { season = s.number } label: {
                                 Text(L("فصل \(N(s.number))", "Season \(s.number)"))
@@ -171,7 +180,7 @@ struct TitleDetailView: View {
             if let current {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 30) {
+                        LazyHStack(spacing: Theme.cardSpacing) {
                             ForEach(current.episodes.sorted { $0.number < $1.number }) { ep in
                                 let seen = watch.isWatched(ep.streamId, playedOnSite: ep.played)
                                 EpisodeTile(episode: ep, watched: seen,
@@ -187,7 +196,7 @@ struct TitleDetailView: View {
                                     .id(ep.streamId)
                             }
                         }
-                        .padding(.vertical, 30)
+                        .padding(.vertical, Theme.focusRoom)
                         .padding(.horizontal, Self.margin)
                     }
                     .onAppear {
@@ -288,6 +297,17 @@ struct TitleDetailView: View {
         }
     }
 
+    /// Marks the whole film or series watched / unwatched on the site, as the thumbnail menu does.
+    private func toggleWatched() {
+        guard !watchedBusy else { return }
+        watchedBusy = true
+        let wanted = !marks.isWatched(ref)
+        Task {
+            defer { watchedBusy = false }
+            if let failure = await marks.setWatched(ref, wanted) { playError = failure }
+        }
+    }
+
     /// The site's bookmark is a toggle. After toggling, the title page is read again so the button shows
     /// what the site actually stored (and a toggle that didn't stick is reported).
     private func toggleWatchlist() {
@@ -320,7 +340,8 @@ private struct SuggestionItem: Identifiable {
     var id: TitleRef { ref }
 }
 
-/// A numbered episode tile: ✓ when watched (on the site or here), red bar when partly watched.
+/// A numbered episode tile: the Watched badge when watched (on the site or here), a progress bar when
+/// partly watched; same surface, corner and badge as the poster cards.
 struct EpisodeTile: View {
     let episode: Episode
     let watched: Bool
@@ -330,20 +351,20 @@ struct EpisodeTile: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottom) {
-                VStack(spacing: 6) {
-                    Text(L("قسمت", "Episode")).font(.caption2).foregroundStyle(Theme.secondaryText)
-                    Text(N(episode.number)).font(.system(size: 52, weight: .bold))
+                VStack(spacing: 2) {
+                    Text(L("قسمت", "Episode")).font(.captionText).foregroundStyle(Theme.secondaryText)
+                    Text(N(episode.number)).font(.system(size: 48, weight: .bold))
                 }
                 .frame(width: 220, height: 140)
                 if watched {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing).padding(12)
+                    WatchedBadge().scaleEffect(0.85, anchor: .topTrailing)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing).padding(10)
                 } else if progress > 0.01 {
                     ProgressBar(value: progress).padding(12)
                 }
             }
             .frame(width: 220, height: 140)
-            .background(Color.white.opacity(0.08))
+            .background(Theme.surface)
         }
         .buttonStyle(.card)
     }

@@ -19,19 +19,19 @@ struct LoginView: View {
     var body: some View {
         HStack(spacing: 120) {
             VStack(alignment: .leading, spacing: 24) {
-                Text("DL Rooz")
-                    .font(.system(size: 96, weight: .heavy))
-                    .foregroundStyle(LinearGradient(colors: [Theme.accent, .orange], startPoint: .leading, endPoint: .trailing))
+                // The app icon's two chevrons, then the name.
+                HStack(spacing: 28) {
+                    Image("Logo").resizable().scaledToFit().frame(height: 96)
+                    Text("DL Rooz").font(.system(size: 76, weight: .heavy))
+                }
+                .environment(\.layoutDirection, .leftToRight)
                 Text(L("فیلم و سریال‌های دی‌ال‌روز، روی تلویزیون", "Your DLRooz movies and series, on the big screen"))
-                    .font(.title3).foregroundStyle(Theme.secondaryText)
+                    .font(.rowHeading).foregroundStyle(Theme.secondaryText)
                 Text(L("با نام کاربری و رمز حساب دی‌ال‌روز خود وارد شوید. رمز شما فقط در Keychain همین دستگاه ذخیره می‌شود.",
                        "Sign in with your DLRooz account. Your password is kept only in this Apple TV's Keychain."))
-                    .font(.callout).foregroundStyle(Theme.secondaryText)
-                Picker(L("زبان", "Language"), selection: $settings.language) {
-                    ForEach(AppLanguage.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 420)
+                    .font(.bodyText).foregroundStyle(Theme.secondaryText)
+                ChoiceChips(options: AppLanguage.allCases, selection: $settings.language) { $0.label }
+                    .padding(.top, 12)
             }
             .frame(maxWidth: 700, alignment: .leading)
 
@@ -42,7 +42,7 @@ struct LoginView: View {
                     credentialFields
                 }
                 if let error {
-                    Text(error).foregroundStyle(Theme.accent).multilineTextAlignment(.center)
+                    Text(error).font(.bodyText).foregroundStyle(Theme.accent).multilineTextAlignment(.center)
                 }
                 Button(action: submit) {
                     HStack(spacing: 16) {
@@ -60,7 +60,7 @@ struct LoginView: View {
             }
             .frame(width: 640)
         }
-        .padding(80)
+        .padding(.horizontal, Theme.margin).padding(.vertical, Theme.pageTop)
         .onAppear { focus = .username }
     }
 
@@ -81,13 +81,13 @@ struct LoginView: View {
     private func secondStepFields(_ step: SecondStep) -> some View {
         VStack(spacing: 20) {
             Image(systemName: step.isEmail ? "envelope.badge.shield.half.filled" : "iphone.gen3.radiowaves.left.and.right")
-                .font(.system(size: 64)).foregroundStyle(Theme.accent)
+                .font(.system(size: 72)).foregroundStyle(Theme.accent)
             Text(step.message ?? (step.isEmail
                 ? L("برای تأیید این دستگاه، ایمیل حساب را کامل وارد کنید", "To confirm this device, enter your account's email address")
                 : L("برای تأیید این دستگاه، شماره موبایل حساب را کامل وارد کنید", "To confirm this device, enter your account's full mobile number")))
-                .multilineTextAlignment(.center)
+                .font(.bodyText).multilineTextAlignment(.center)
             if !step.hint.isEmpty {
-                Text(step.hint).font(.headline).environment(\.layoutDirection, .leftToRight)
+                Text(step.hint).font(.rowHeading).environment(\.layoutDirection, .leftToRight)
                     .foregroundStyle(Theme.secondaryText)
             }
             TextField(step.label.nilIfBlank ?? (step.isEmail ? L("ایمیل", "Email") : L("شماره موبایل", "Mobile number")),

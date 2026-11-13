@@ -9,12 +9,13 @@ struct SettingsView: View {
     @State private var historyCleared = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 60) {
+        HStack(alignment: .top, spacing: Theme.gridRowSpacing) {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
+                    PageTitle(L("تنظیمات", "Settings"))
                     SettingsHeader(L("حساب", "Account"))
                     SettingsInfoRow(title: L("نام کاربری", "Username"), value: model.username ?? "—")
-                    SettingsRow(title: L("خروج از حساب", "Sign Out"), value: "") { confirmSignOut = true }
+                    SettingsRow(title: L("خروج از حساب", "Sign Out"), value: "", chevron: false) { confirmSignOut = true }
 
                     SettingsHeader(L("پخش", "Playback"))
                     CycleRow(title: L("پخش‌کننده پیش‌فرض", "Default player"), options: PlayerChoice.allCases,
@@ -48,26 +49,33 @@ struct SettingsView: View {
                     SettingsHeader(L("برنامه", "App"))
                     CycleRow(title: L("زبان", "Language"), options: AppLanguage.allCases,
                              selection: $settings.language) { $0.label }
-                    SettingsRow(title: L("پاک کردن حافظه موقت", "Clear cache"), value: cleared ? "✓" : "") {
+                    SettingsRow(title: L("پاک کردن حافظه موقت", "Clear cache"), value: cleared ? L("پاک شد", "Cleared") : "", chevron: false) {
                         ImageLoader.shared.clear()
                         URLCache.shared.removeAllCachedResponses()
                         RatingStore.shared.clear()
                         cleared = true
                     }
                     SettingsRow(title: L("پاک کردن سابقه تماشا در این دستگاه", "Clear watch history on this device"),
-                                value: historyCleared ? "✓" : "") {
+                                value: historyCleared ? L("پاک شد", "Cleared") : "", chevron: false) {
                         watch.clear()
                         historyCleared = true
                     }
                     SettingsInfoRow(title: L("نسخه", "Version"),
                                     value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
                 }
-                .padding(.vertical, 40)
+                .padding(.vertical, Theme.pageTop)
                 .padding(.horizontal, 20)
             }
-            SubtitlePreview().frame(width: 640).padding(.top, 60)
+            VStack(alignment: .leading, spacing: 18) {
+                RowHeading(L("پیش‌نمایش زیرنویس", "Subtitle preview"))
+                SubtitlePreview()
+                Text(L("تغییر اندازه، رنگ و پس‌زمینه همین‌جا دیده می‌شود.", "Changes to size, colour and background show here straight away."))
+                    .font(.captionText).foregroundStyle(Theme.secondaryText)
+            }
+            .frame(width: 640)
+            .padding(.top, Theme.pageTop + 90)
         }
-        .padding(.horizontal, 60)
+        .padding(.horizontal, Theme.margin - 20)
         .alert(L("از حساب خارج می‌شوید؟", "Sign out?"), isPresented: $confirmSignOut) {
             Button(L("خروج", "Sign Out"), role: .destructive) { Task { await model.signOut() } }
             Button(L("انصراف", "Cancel"), role: .cancel) {}
@@ -82,20 +90,25 @@ struct SettingsHeader: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.headline).foregroundStyle(Theme.secondaryText).padding(.top, 26)
+        Text(text).font(.rowHeading).padding(.top, 26).padding(.bottom, 4)
     }
 }
 
+/// Every Settings row: title on one side; current value and a chevron (it opens something) on the other.
 struct SettingsRowLabel: View {
     let title: String
     let value: String
+    var chevron = true
     var body: some View {
-        HStack {
+        HStack(spacing: 30) {
             Text(title)
             Spacer(minLength: 30)
-            Text(value).opacity(0.6)
+            HStack(spacing: 14) {
+                Text(value).lineLimit(1)
+                if chevron { Image(systemName: "chevron.forward").font(.system(size: 24, weight: .semibold)) }
+            }
+            .opacity(0.75)
         }
-        .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
     }
 }
@@ -103,17 +116,22 @@ struct SettingsRowLabel: View {
 struct SettingsRow: View {
     let title: String
     let value: String
+    var chevron = true
     let action: () -> Void
     var body: some View {
-        Button(action: action) { SettingsRowLabel(title: title, value: value) }
+        Button(action: action) { SettingsRowLabel(title: title, value: value, chevron: chevron) }
+            .buttonStyle(TVButtonStyle(fullWidth: true))
     }
 }
 
+/// A row that only shows a value; lined up with the button rows' text.
 struct SettingsInfoRow: View {
     let title: String
     let value: String
     var body: some View {
-        SettingsRowLabel(title: title, value: value).padding(.horizontal, 40).padding(.vertical, 12)
+        SettingsRowLabel(title: title, value: value, chevron: false)
+            .font(.control)
+            .padding(.horizontal, 28).padding(.vertical, 16)
     }
 }
 
@@ -142,7 +160,7 @@ struct CycleRow<T: Equatable>: View {
             SettingsRowLabel(title: title, value: label(selection))
         }
         .menuStyle(.button)
-        .buttonStyle(TVButtonStyle())
+        .buttonStyle(TVButtonStyle(fullWidth: true))
     }
 }
 
@@ -152,7 +170,7 @@ struct SubtitlePreview: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            LinearGradient(colors: [.indigo.opacity(0.6), .black], startPoint: .top, endPoint: .bottom)
+            Theme.surface
             Text("زندگی همین لحظه‌هاست\nLife is these moments")
                 .font(.custom("Vazirmatn-Bold", size: 30 * CGFloat(settings.subtitleSize) / 100))
                 .multilineTextAlignment(.center)
@@ -163,7 +181,7 @@ struct SubtitlePreview: View {
                 .padding(.bottom, 30)
         }
         .frame(height: 360)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
     }
 }
 
@@ -177,10 +195,10 @@ struct SubtitleSourcesView: View {
     var body: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 14) {
-                Text(L("منابع زیرنویس آنلاین", "Online subtitle sources")).font(.title2.bold())
+                PageTitle(L("منابع زیرنویس آنلاین", "Online subtitle sources"))
                 Text(L("وقتی سایت زیرنویس مناسب ندارد، از این سایت‌ها جستجو می‌شود. کلیدها در Keychain همین دستگاه می‌مانند.",
                        "Searched when the site has no suitable subtitle. Keys stay in this Apple TV's Keychain."))
-                    .font(.caption).foregroundStyle(Theme.secondaryText)
+                    .font(.captionText).foregroundStyle(Theme.secondaryText)
 
                 SettingsHeader("SubDL — " + SubtitleSource.subdl.signupURL)
                 SecureField(L("کلید API", "API key"), text: $settings.subdlKey)
@@ -202,17 +220,18 @@ struct SubtitleSourcesView: View {
 
                 SettingsHeader(L("آزمایش", "Test"))
                 SettingsRow(title: testing ? L("در حال آزمایش…", "Testing…") : L("آزمایش کلیدها با یک فیلم", "Test the keys with a film"),
-                            value: "") { if !testing { test() } }
-                if let testResult { Text(testResult).font(.caption).padding(.horizontal, 20) }
+                            value: "", chevron: false) { if !testing { test() } }
+                if let testResult { Text(testResult).font(.captionText).padding(.horizontal, 28) }
             }
-            .padding(.horizontal, 200)
-            .padding(.vertical, 40)
+            .frame(maxWidth: 1200, alignment: .leading)
+            .padding(.horizontal, Theme.margin)
+            .padding(.vertical, Theme.pageTop)
         }
     }
 
     private func langRow(_ title: String, _ code: String) -> some View {
         let binding = lang(code)
-        return SettingsRow(title: title, value: binding.wrappedValue ? L("روشن", "On") : L("خاموش", "Off")) {
+        return SettingsRow(title: title, value: binding.wrappedValue ? L("روشن", "On") : L("خاموش", "Off"), chevron: false) {
             binding.wrappedValue.toggle()
         }
     }

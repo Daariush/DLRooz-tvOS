@@ -20,6 +20,7 @@ struct PosterCard: View {
             NavigationLink(value: Route.title(ref, backdropHash: nil)) {
                 RemoteImage(url: Theme.posterURL(posterHash))
                     .frame(width: Theme.posterSize.width, height: Theme.posterSize.height)
+                    .background(Theme.surface)
                     .overlay(alignment: .topLeading) {
                         if let score = rating ?? fetched, score > 0 { RatingBadge(score: score).padding(10) }
                     }
@@ -31,10 +32,10 @@ struct PosterCard: View {
             .buttonStyle(.card)
             .contextMenu { WatchedMenuButton(ref: ref) }
             VStack(alignment: .leading, spacing: 4) {
-                Text(realTitle ?? title).font(.callout).lineLimit(1)
+                Text(realTitle ?? title).font(.control).lineLimit(1)
                     .environment(\.layoutDirection, .leftToRight)
                 if let subtitle {
-                    Text(subtitle).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                    Text(subtitle).font(.captionText).foregroundStyle(Theme.secondaryText).lineLimit(1)
                 }
             }
             .frame(width: Theme.posterSize.width, alignment: .leading)
@@ -53,14 +54,10 @@ extension PosterCard {
     }
 }
 
-/// Small «watched» mark on a thumbnail.
+/// The «watched» mark on a thumbnail: top-right, in the icon's green-teal.
 struct WatchedBadge: View {
     var body: some View {
-        Image(systemName: "eye.fill")
-            .font(.system(size: 18, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(8)
-            .background(Color.black.opacity(0.65), in: Circle())
+        Badge(text: L("دیده شده", "Watched"), style: .watched)
     }
 }
 
@@ -85,14 +82,8 @@ struct RatingBadge: View {
     let score: Double
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text("IMDb").font(.system(size: 17, weight: .heavy))
-            Text(String(format: "%.1f", score)).font(.system(size: 22, weight: .bold))
-        }
-        .foregroundStyle(.black)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(Color(red: 0.96, green: 0.77, blue: 0.09), in: RoundedRectangle(cornerRadius: 8))
-        .environment(\.layoutDirection, .leftToRight)
+        Badge(text: String(format: "%.1f", score), prefix: "IMDb", style: .imdb)
+            .environment(\.layoutDirection, .leftToRight)
     }
 }
 
@@ -108,14 +99,8 @@ struct MetacriticBadge: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text("Metacritic").font(.system(size: 17, weight: .heavy))
-            Text(value.before("/")).font(.system(size: 22, weight: .bold))
-        }
-        .foregroundStyle(.black)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(color, in: RoundedRectangle(cornerRadius: 8))
-        .environment(\.layoutDirection, .leftToRight)
+        Badge(text: value.before("/"), prefix: "Metacritic", style: .critics(color))
+            .environment(\.layoutDirection, .leftToRight)
     }
 }
 
@@ -127,14 +112,14 @@ struct CardRow<Item: Identifiable, Card: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(title).font(.title3.weight(.semibold))
-                .padding(.horizontal, 80)
+            RowHeading(title)
+                .padding(.horizontal, Theme.margin)
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 40) {
+                LazyHStack(alignment: .top, spacing: Theme.cardSpacing) {
                     ForEach(items) { card($0) }
                 }
-                .padding(.horizontal, 80)
-                .padding(.vertical, 30)
+                .padding(.horizontal, Theme.margin)
+                .padding(.vertical, Theme.focusRoom)
             }
         }
         .focusSection()

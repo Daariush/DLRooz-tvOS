@@ -45,7 +45,7 @@ struct HomeView: View {
 
     private func content(_ home: HomePage) -> some View {
         ScrollView(.vertical) {
-            LazyVStack(alignment: .leading, spacing: 50) {
+            LazyVStack(alignment: .leading, spacing: Theme.rowSpacing) {
                 if !home.featured.isEmpty { featuredRow(home.featured) }
                 continueRow(home)
                 ForEach(home.sections) { section in
@@ -56,23 +56,24 @@ struct HomeView: View {
                     PagedRow(title: row.title, path: row.path, initial: row.items, firstPage: 1)
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, Theme.pageTop)
         }
     }
 
     private func featuredRow(_ items: [FeaturedItem]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 48) {
+            LazyHStack(spacing: Theme.cardSpacing) {
                 ForEach(items, id: \.ref) { item in
                     NavigationLink(value: Route.title(item.ref, backdropHash: item.backdropHash)) {
                         ZStack(alignment: .bottomLeading) {
                             RemoteImage(url: ImageURLs.image(item.backdropHash, w: 1920, h: 1080))
                                 .frame(width: 1200, height: 560)
+                                .background(Theme.surface)
                             LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .center, endPoint: .bottom)
                             if let card = featuredCards[item.ref] {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text(card.title).font(.title2.bold()).environment(\.layoutDirection, .leftToRight)
-                                    Text(card.metaLine).font(.callout).foregroundStyle(Theme.secondaryText)
+                                    Text(card.title).font(.rowHeading).environment(\.layoutDirection, .leftToRight)
+                                    Text(card.metaLine).font(.captionText).foregroundStyle(Theme.secondaryText)
                                 }
                                 .padding(36)
                             }
@@ -83,8 +84,8 @@ struct HomeView: View {
                     .buttonStyle(.card)
                 }
             }
-            .padding(.horizontal, 80)
-            .padding(.vertical, 30)
+            .padding(.horizontal, Theme.margin)
+            .padding(.vertical, Theme.focusRoom)
         }
         .focusSection()
     }
@@ -202,6 +203,7 @@ struct ContinueCard: View {
                 ZStack(alignment: .bottom) {
                     RemoteImage(url: Theme.posterURL(item.posterHash))
                         .frame(width: Theme.posterSize.width, height: Theme.posterSize.height)
+                        .background(Theme.surface)
                     if let e = item.entry, !e.finished {
                         ProgressBar(value: e.progress).padding(14)
                     }
@@ -210,12 +212,12 @@ struct ContinueCard: View {
                 .overlay(alignment: .topLeading) {
                     if let score, score > 0 { RatingBadge(score: score).padding(10) }
                 }
+                .overlay(alignment: .topTrailing) {
+                    if marks.isWatched(item.ref) { WatchedBadge().padding(10) }
+                }
                 .clipped()
             }
             .buttonStyle(.card)
-            .overlay(alignment: .topTrailing) {
-                if marks.isWatched(item.ref) { WatchedBadge().padding(10) }
-            }
             .contextMenu { WatchedMenuButton(ref: item.ref) }
             .task(id: item.ref) {
                 score = await RatingStore.shared.rating(for: item.ref)
@@ -223,10 +225,10 @@ struct ContinueCard: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.entry?.title ?? name ?? item.ref.displayName)
-                    .font(.callout).lineLimit(1)
+                    .font(.control).lineLimit(1)
                     .environment(\.layoutDirection, .leftToRight)
                 if let e = item.entry, e.isSeries {
-                    Text(UIStrings.episodeLabel(season: e.season, episode: e.episode)).font(.caption)
+                    Text(UIStrings.episodeLabel(season: e.season, episode: e.episode)).font(.captionText)
                         .foregroundStyle(Theme.secondaryText)
                 }
             }

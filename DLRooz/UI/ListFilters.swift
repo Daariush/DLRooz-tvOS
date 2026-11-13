@@ -109,6 +109,7 @@ struct FilterMenu<T: Equatable>: View {
             Label(label(selection), systemImage: icon)
         }
         .menuStyle(.button)
-        .buttonStyle(TVButtonStyle())
+        // A filter that is set shows as "on", like a chosen category.
+        .buttonStyle(TVButtonStyle(selected: options.first.map { $0 != selection } ?? false))
     }
 }

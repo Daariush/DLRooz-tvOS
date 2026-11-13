@@ -28,31 +28,36 @@ struct ListGridView: View {
         }
         return selectedPath ?? path
     }
-    private let columns = Array(repeating: GridItem(.fixed(Theme.posterSize.width), spacing: 60), count: 5)
+    /// As many posters per row as fit between the margins, 40 apart.
+    private let columns = [GridItem(.adaptive(minimum: Theme.posterSize.width, maximum: Theme.posterSize.width),
+                                    spacing: Theme.cardSpacing, alignment: .top)]
 
     var body: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 30) {
-                Text(title).font(.title2.bold()).padding(.horizontal, 80)
+                PageTitle(title).padding(.horizontal, Theme.margin)
                 if !chips.isEmpty { chipRow }
                 if categories != nil { filterRow }
                 if let error, items.isEmpty {
                     ErrorView(message: error) { Task { await reload() } }.frame(height: 500)
                 } else if items.isEmpty && !loading && page > 0 {
-                    Text(emptyText ?? L("چیزی پیدا نشد", "Nothing here"))
-                        .foregroundStyle(Theme.secondaryText).frame(maxWidth: .infinity).padding(.top, 120)
+                    EmptyStateView(icon: categories == nil ? "bookmark" : "film.stack",
+                                   message: emptyText ?? L("چیزی پیدا نشد", "Nothing here"))
+                } else if items.isEmpty && loading {
+                    LoadingView().frame(height: 500)
                 } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 60) {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.gridRowSpacing) {
                         ForEach(items) { card in
                             PosterCard(card: card)
                                 .onAppear { if card.ref == items.last?.ref { Task { await loadMore() } } }
                         }
                     }
-                    .padding(.horizontal, 80)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.top, 20)
                     if loading { ProgressView().frame(maxWidth: .infinity).padding() }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, Theme.pageTop)
         }
         .task { if page == 0 { await reload() } }
         .onAppear { if reloadOnAppear && page > 0 && !loading { Task { await refresh() } } }
@@ -60,11 +65,11 @@ struct ListGridView: View {
 
     private var chipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
+            HStack(spacing: Theme.chipSpacing) {
                 chip(L("همه", "All"), path: nil)
                 ForEach(chips) { c in chip(UIStrings.joinPlurals(c.label), path: c.path) }
             }
-            .padding(.horizontal, 80).padding(.vertical, 20)
+            .padding(.horizontal, Theme.margin).padding(.vertical, Theme.chipSpacing)
         }
         .focusSection()
     }
@@ -85,7 +90,7 @@ struct ListGridView: View {
     /// to the site's advanced search; choosing a category chip clears them.
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
+            HStack(spacing: Theme.chipSpacing) {
                 FilterMenu(options: [nil] + ListFilters.genres.map { Optional($0.id) }, selection: filterBinding(\.genre),
                            label: ListFilters.genreLabel, icon: "theatermasks")
                 FilterMenu(options: ListFilters.YearRange.options, selection: filterBinding(\.years),
@@ -103,7 +108,7 @@ struct ListGridView: View {
                     }
                 }
             }
-            .padding(.horizontal, 80).padding(.vertical, 10)
+            .padding(.horizontal, Theme.margin).padding(.vertical, Theme.chipSpacing)
         }
         .focusSection()
     }
