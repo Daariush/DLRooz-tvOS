@@ -14,6 +14,8 @@ final class SearchState: ObservableObject {
     @Published var recent = LocalPrefs.recentSearches
     /// The query `results` belong to.
     var searched = ""
+    /// Which kind of result to show: nil = all.
+    @Published var kind: TitleKind?
 }
 
 struct SearchView: View {
@@ -49,8 +51,20 @@ struct SearchView: View {
                 } else if state.results.isEmpty {
                     Text(L("نتیجه‌ای پیدا نشد", "No results")).foregroundStyle(Theme.secondaryText)
                 } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 56) {
-                        ForEach(state.results) { PosterCard(card: $0) }
+                    let shown = state.kind == nil ? state.results : state.results.filter { $0.ref.kind == state.kind }
+                    HStack(spacing: 16) {
+                        kindChip(L("همه", "All"), nil, count: state.results.count)
+                        kindChip(L("فیلم", "Movies"), .film, count: state.results.filter { $0.ref.kind == .film }.count)
+                        kindChip(L("سریال", "Series"), .series, count: state.results.filter { $0.ref.kind == .series }.count)
+                    }
+                    .focusSection()
+                    if shown.isEmpty {
+                        Text(state.kind == .film ? L("فیلمی پیدا نشد", "No movies found") : L("سریالی پیدا نشد", "No series found"))
+                            .foregroundStyle(Theme.secondaryText)
+                    } else {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 56) {
+                            ForEach(shown) { PosterCard(card: $0) }
+                        }
                     }
                 }
             }
@@ -80,5 +94,15 @@ struct SearchView: View {
                 state.error = error.localizedDescription
             }
         }
+    }
+
+    /// Small All / Movies / Series switch above the results, with how many there are of each.
+    private func kindChip(_ label: String, _ kind: TitleKind?, count: Int) -> some View {
+        Button {
+            state.kind = kind
+        } label: {
+            Text("\(label) (\(N(count)))").font(.caption.weight(.medium))
+        }
+        .buttonStyle(TVButtonStyle(selected: state.kind == kind))
     }
 }
