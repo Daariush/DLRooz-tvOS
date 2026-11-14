@@ -127,8 +127,6 @@ final class AppSettings: ObservableObject {
         openSubtitlesKey = Keychain.string(for: SecretKeys.osKey)
         openSubtitlesUser = Keychain.string(for: SecretKeys.osUser)
         openSubtitlesPassword = Keychain.string(for: SecretKeys.osPassword)
-        Keychain.setString("", for: "ratings.omdb.key")
-        UserDefaults.standard.removeObject(forKey: "ratings.omdb.cache")
     }
 
     var layoutDirection: LayoutDirection { language == .fa ? .rightToLeft : .leftToRight }

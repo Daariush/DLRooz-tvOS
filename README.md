@@ -1,62 +1,82 @@
-# DL Rooz for Apple TV
+<div dir="rtl">
 
-A native tvOS app for DLRooz, ported from the Android TV app [DRooz-AndroidTV](https://github.com/AliKarami/DRooz-AndroidTV).
-It is an unofficial client: you need your own DLRooz account.
+# دی‌ال روز برای اپل تی‌وی
 
-## Features
+[English](README.en.md)
 
-- **Sign in once.** Username (or email) and password; when the site asks a new device to confirm the account,
-  the app asks for the mobile number (or email) as a second step. Credentials and the site session live in the
-  Apple TV Keychain, and expired sessions are renewed silently without registering a new device.
-- **Apple TV design.** Top tab bar (Home, Series, Films, My List, Search, Settings), focusable cards with the
-  standard tvOS lift effect, the native search keyboard (with dictation), and Persian right-to-left UI
-  (switchable to English in Settings).
-- **Home:** featured carousel, Continue Watching (local progress plus the site's recently streamed list), and the
-  site's rows. Series/Films pages have the site's categories as chips and infinite scrolling.
-- **Title page:** adaptive Play / Resume button, original vs Persian-dub switch, My List, seasons and episode tiles
-  with ✓ watched and progress, and suggestions.
-- **Choose the player.** The built-in player (Apple's AVPlayerViewController) or hand the stream to Infuse, VLC,
-  SenPlayer or any app via a custom URL scheme. Pick a default in Settings or "Ask every time"; "Play with…" is
-  always on the title page.
-- **Built-in player:**
-  - Buffer ahead **5, 10 or 20 minutes** (Settings, or live from the player's Buffer menu, which also shows how
-    much is loaded). Starts on the first variant for a fast start, then adapts.
-  - Quality menu with the site's labels (e.g. `1080 [ 2.48 GB ]`), speed 0.5×–2×, resume, next-episode autoplay,
-    audio tracks (original, 5.1, Persian dub) from the native audio menu.
-  - **Subtitles:** the site's Farsi / English / English + Farsi / Farsi-for-dub tracks, plus online search on
-    **SubDL**, **SubSource** and **OpenSubtitles** (by IMDb id, season and episode). Size, colour, background box,
-    and sync in ±0.5 s / ±2 s steps (remembered per episode). Persian Windows-1256 files are decoded correctly.
+یک اپلیکیشن بومی tvOS برای تماشای فیلم‌ها و سریال‌های حساب کاربری شما در سایت دانلود روز، با طراحی مخصوص اپل تی‌وی و ریموت آن.
 
-## Online subtitle sources
+> **توجه:** این یک اپلیکیشن غیررسمی است و هیچ وابستگی یا ارتباطی با سایت دانلود روز ندارد. اپلیکیشن هیچ محتوایی را میزبانی یا ذخیره نمی‌کند و فقط همان چیزی را نشان می‌دهد که حساب شما در سایت به آن دسترسی دارد.
 
-Add your own keys in **Settings → Online subtitle sources** (stored in the Keychain):
+## پیش‌نیاز
 
-| Site | What you need |
-|---|---|
-| SubDL | API key from subdl.com/panel/api |
-| SubSource | API key from subsource.net (API docs page) |
-| OpenSubtitles | API key from opensubtitles.com/consumers, plus your opensubtitles.com username and password for downloads |
+- **حساب کاربری فعال در سایت دانلود روز (نام کاربری و رمز عبور).** اپلیکیشن امکان ثبت‌نام ندارد؛ اگر حساب ندارید، ابتدا از خود سایت ثبت‌نام کنید.
+- اپل تی‌وی با **tvOS 17** یا جدیدتر.
+- یک مک با **Xcode 16** یا جدیدتر برای ساختن اپلیکیشن.
 
-The **Test with a film** button checks each key.
+## اپلیکیشن چطور کار می‌کند
 
-## Build
+- **ورود:** یک بار با نام کاربری (یا ایمیل) و رمز عبور وارد می‌شوید. اگر سایت برای دستگاه جدید تأیید بخواهد، اپلیکیشن شماره موبایل (یا ایمیل) را می‌پرسد. اطلاعات ورود فقط در Keychain همان اپل تی‌وی نگه داشته می‌شود و این اپل تی‌وی یکی از دستگاه‌های حساب شما حساب می‌شود.
+- **خانه:** بنر ویژه، «ادامه تماشا» و ردیف‌های سایت.
+- **فیلم‌ها و سریال‌ها:** دسته‌بندی‌ها و فیلتر ژانر، سال، حداقل امتیاز IMDb و مرتب‌سازی.
+- **لیست من:** همان لیست تماشای حساب شما در سایت.
+- **جستجو:** با کیبورد و دیکته‌ی صوتی اپل تی‌وی، با جداکننده‌ی همه / فیلم / سریال.
+- **صفحه‌ی عنوان:** پخش یا ادامه، انتخاب نسخه‌ی اصلی یا دوبله، فصل‌ها و قسمت‌ها، علامت «دیده شده».
+- **پخش:** با پخش‌کننده‌ی داخلی یا اپلیکیشن‌های دیگر مثل Infuse و VLC (از تنظیمات).
+- **پخش‌کننده‌ی داخلی:** بافر ۵، ۱۰ یا ۲۰ دقیقه جلوتر، انتخاب کیفیت، سرعت پخش، ادامه از همان جا و پخش خودکار قسمت بعد.
+- **زیرنویس:** زیرنویس‌های سایت، به‌علاوه‌ی جستجوی آنلاین در SubDL، SubSource و OpenSubtitles با کلید API خودتان (تنظیمات ← منابع زیرنویس آنلاین). اندازه، رنگ، پس‌زمینه و تنظیم زمان زیرنویس قابل تغییر است.
+- **زبان:** رابط فارسی راست‌به‌چپ، قابل تغییر به انگلیسی در تنظیمات.
 
-Requirements: Xcode 16 or newer, tvOS 17+ Apple TV (or the tvOS Simulator).
+## نصب
 
-1. Open `DLRooz.xcodeproj`. Xcode fetches the one dependency, [SwiftSoup](https://github.com/scinfu/SwiftSoup).
-2. Select the **DLRooz** target → *Signing & Capabilities* and pick your team (a free Apple ID works for
-   installing on your own Apple TV).
-3. Pair your Apple TV with Xcode (*Window → Devices and Simulators*; on the TV: Settings → Remotes and Devices →
-   Remote App and Devices) and press Run.
+فایل نصبی (IPA) آماده منتشر نمی‌شود؛ اپلیکیشن را خودتان از کد همین مخزن می‌سازید و امضا می‌کنید. دو روش وجود دارد:
 
-## Notes
+### روش ۱ (پیشنهادی): ساخت IPA و امضا با Signulous
 
-- tvOS has no durable file storage for apps: the session and secrets are in the Keychain, watch progress and
-  settings in UserDefaults, images in the cache directory.
-- The site's stream link expires about a minute after it is issued, so external players are opened immediately
-  with a fresh link. Site subtitles need the site session, so they are only available in the built-in player.
-- Audio Boost from the Android app is not available: AVPlayer doesn't allow audio processing on HLS streams.
-- The buffer setting maps to `AVPlayerItem.preferredForwardBufferDuration`; tvOS treats it as a target and may
-  buffer less when memory is tight.
+[Signulous](https://www.signulous.com) یک سرویس امضای اپلیکیشن (پولی، اشتراک سالانه) است که از اپل تی‌وی پشتیبانی می‌کند. اپلیکیشن امضاشده با آن یک سال اعتبار دارد و لازم نیست هر هفته دوباره نصبش کنید.
 
-Fonts: [Vazirmatn](https://github.com/rastikerdar/vazirmatn) (SIL Open Font License, see `Config/OFL-vazirmatn.txt`).
+۱. مخزن را روی مک دانلود کنید:
+
+```
+git clone https://github.com/Daariush/DLRooz-tvOS.git
+cd DLRooz-tvOS
+```
+
+۲. یک IPA امضانشده بسازید:
+
+```
+xcodebuild -project DLRooz.xcodeproj -scheme DLRooz -configuration Release \
+  -sdk appletvos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+mkdir -p Payload && cp -R build/Build/Products/Release-appletvos/DLRooz.app Payload/
+zip -r DLRooz.ipa Payload
+```
+
+۳. در Signulous حساب بسازید و اپل تی‌وی خود را ثبت کنید (طبق راهنمای خود سایت برای اپل تی‌وی).
+
+۴. فایل `DLRooz.ipa` را در بخش امضای اپلیکیشن Signulous بارگذاری کنید، امضا کنید و روی اپل تی‌وی نصب کنید.
+
+### روش ۲ (رایگان): نصب مستقیم با Xcode
+
+۱. `DLRooz.xcodeproj` را در Xcode باز کنید. Xcode تنها وابستگی پروژه ([SwiftSoup](https://github.com/scinfu/SwiftSoup)) را خودش دریافت می‌کند.
+
+۲. تارگت **DLRooz** ← *Signing & Capabilities*: تیم خود را انتخاب کنید (Apple ID رایگان کافی است) و **Bundle Identifier** را به یک نام یکتا مثل `com.yourname.dlrooz` تغییر دهید.
+
+۳. اپل تی‌وی را با Xcode جفت کنید: روی اپل تی‌وی به *Settings ← Remotes and Devices ← Remote App and Devices* بروید و در Xcode از *Window ← Devices and Simulators* آن را اضافه کنید.
+
+۴. اپل تی‌وی را به‌عنوان مقصد انتخاب کنید و **Run** را بزنید.
+
+با Apple ID رایگان، اپلیکیشن بعد از ۷ روز از کار می‌افتد و باید دوباره از Xcode نصبش کنید. با حساب Apple Developer پولی این مدت یک سال است.
+
+## نکته‌ها
+
+- لینک پخش سایت حدود یک دقیقه اعتبار دارد، برای همین پخش‌کننده‌های بیرونی بلافاصله با لینک تازه باز می‌شوند.
+- زیرنویس‌های خود سایت فقط در پخش‌کننده‌ی داخلی در دسترس هستند.
+- tvOS حافظه‌ی دائمی فایل برای اپلیکیشن‌ها ندارد؛ اطلاعات ورود و کلیدها در Keychain و تنظیمات و پیشرفت تماشا در UserDefaults ذخیره می‌شوند.
+
+## مجوز
+
+کد این مخزن با مجوز [MIT](LICENSE) منتشر شده است. فونت [وزیرمتن](https://github.com/rastikerdar/vazirmatn) با مجوز SIL Open Font License (فایل `Config/OFL-vazirmatn.txt`) استفاده شده است.
+
+نام‌ها و نشان‌های تجاری سایت‌ها و سرویس‌های ذکرشده متعلق به صاحبان آن‌هاست.
+
+</div>

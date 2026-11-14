@@ -21,7 +21,7 @@ enum SiteConfig {
     static let scrValue = "1"
     /// Login session cookie.
     static let sessionCookie = "cf"
-    /// Device id cookie. Kept forever (also across logouts): the site limits devices per account.
+    /// Device id cookie. Kept across logouts so this Apple TV stays one device on the account.
     static let deviceCookie = "sf"
 
     static func absolute(_ path: String) -> String {

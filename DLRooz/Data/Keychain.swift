@@ -4,7 +4,7 @@ import Security
 /// Generic-password Keychain storage. tvOS has no durable app file storage, so secrets and the
 /// site session (cookies) live here: they survive restarts and are never in a backup in clear text.
 enum Keychain {
-    private static let service = "app.dlrooz.tv"
+    private static let service = Bundle.main.bundleIdentifier ?? "dlrooz.tvos"
 
     static func set(_ data: Data?, for key: String) {
         let query: [String: Any] = [
