@@ -97,12 +97,15 @@ struct HomeView: View {
         let local = watch.latestPerTitle
             .filter { e in
                 guard !e.finished || e.isSeries else { return false }
+                guard !watch.isHiddenFromContinue(e.refPath, updatedAt: e.updatedAt) else { return false }
                 guard let ref = e.ref else { return true }
                 return !marks.isWatched(ref)
             }
             .prefix(20)
         let localRefs = Set(local.compactMap { $0.ref })
-        let server = home.recentlyStreamed.filter { !localRefs.contains($0.ref) && !marks.isWatched($0.ref) }
+        let server = home.recentlyStreamed.filter {
+            !localRefs.contains($0.ref) && !marks.isWatched($0.ref) && !watch.isHiddenFromContinue($0.ref.path)
+        }
         let items: [ContinueItem] = local.compactMap { e in e.ref.map { ContinueItem(ref: $0, entry: e, posterHash: e.posterHash) } }
             + server.map { ContinueItem(ref: $0.ref, entry: nil, posterHash: $0.posterHash) }
         if !items.isEmpty {
@@ -196,6 +199,7 @@ struct ContinueCard: View {
     @State private var score: Double?
     @State private var name: String?
     @ObservedObject private var marks = TitleMarks.shared
+    @ObservedObject private var watch = WatchStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.cardTitleGap) {
@@ -218,7 +222,14 @@ struct ContinueCard: View {
                 .clipped()
             }
             .buttonStyle(.card)
-            .contextMenu { WatchedMenuButton(ref: item.ref) }
+            .contextMenu {
+                WatchedMenuButton(ref: item.ref)
+                Button(role: .destructive) {
+                    watch.hideFromContinue(item.ref.path)
+                } label: {
+                    Label(L("حذف از ادامه تماشا", "Remove from Continue Watching"), systemImage: "minus.circle")
+                }
+            }
             .task(id: item.ref) {
                 score = await RatingStore.shared.rating(for: item.ref)
                 if item.entry?.title == nil { name = await RatingStore.shared.title(for: item.ref) }
