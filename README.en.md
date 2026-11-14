@@ -2,13 +2,13 @@
 
 [فارسی](README.md)
 
-A native tvOS app for watching the films and series available to your DL Rooz account, designed for Apple TV and its remote.
+A native tvOS app for watching the films and series available to your Download Rooz account, designed for Apple TV and its remote.
 
-> **Note:** This is an unofficial app and is not affiliated with or endorsed by the DL Rooz website. The app does not host or store any content; it only shows what your own account on the site can already access.
+> **Note:** This is an unofficial app and is not affiliated with or endorsed by the Download Rooz website. The app does not host or store any content; it only shows what your own account on the site can already access.
 
 ## Requirements
 
-- **An active DL Rooz account (username and password).** The app has no sign-up; if you don't have an account, create one on the website first.
+- **An active Download Rooz account (username and password).** The app has no sign-up; if you don't have an account, create one on the website first.
 - An Apple TV running **tvOS 17** or later.
 - A Mac with **Xcode 16** or later to build the app.
 
