@@ -66,7 +66,7 @@ struct SearchView: View {
                                        message: state.kind == .film ? L("فیلمی پیدا نشد", "No movies found") : L("سریالی پیدا نشد", "No series found"))
                     } else {
                         LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.gridRowSpacing) {
-                            ForEach(shown) { PosterCard(card: $0) }
+                            ForEach(shown) { PosterCard(card: $0, showKind: true) }
                         }
                     }
                 }

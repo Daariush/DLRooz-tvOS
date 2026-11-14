@@ -31,6 +31,10 @@ final class WatchStore: ObservableObject {
     /// Episodes marked watched (true) or unwatched (false) by hand; wins over progress and the site.
     @Published private(set) var marks: [String: Bool] = [:]
     private let marksKey = "watch.marks"
+    /// Titles taken off Continue Watching by hand (ref path → when). Playing the title again after
+    /// that brings it back.
+    @Published private(set) var hiddenFromContinue: [String: Date] = [:]
+    private let hiddenKey = "watch.hiddenFromContinue"
 
     static let resumeMin: Double = 30
     static let resumeRewind: Double = 3
@@ -42,6 +46,25 @@ final class WatchStore: ObservableObject {
             entries = decoded
         }
         marks = UserDefaults.standard.dictionary(forKey: marksKey) as? [String: Bool] ?? [:]
+        let hidden = UserDefaults.standard.dictionary(forKey: hiddenKey) as? [String: Double] ?? [:]
+        hiddenFromContinue = hidden.mapValues { Date(timeIntervalSince1970: $0) }
+    }
+
+    /// Takes a title off Continue Watching until it is played again.
+    func hideFromContinue(_ refPath: String) {
+        hiddenFromContinue[refPath] = Date()
+        UserDefaults.standard.set(hiddenFromContinue.mapValues { $0.timeIntervalSince1970 }, forKey: hiddenKey)
+    }
+
+    /// Whether Continue Watching should leave this title out (`updatedAt`: the latest local progress).
+    func isHiddenFromContinue(_ refPath: String, updatedAt: Date? = nil) -> Bool {
+        guard let hiddenAt = hiddenFromContinue[refPath] else { return false }
+        return (updatedAt ?? .distantPast) <= hiddenAt
+    }
+
+    /// A film finished in the built-in player.
+    func filmFinished(_ refPath: String) -> Bool {
+        entries.values.contains { $0.refPath == refPath && !$0.isSeries && $0.finished }
     }
 
     /// Watched state of an episode: a hand mark first, else the site's flag or local progress.

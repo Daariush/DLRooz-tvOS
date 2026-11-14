@@ -14,9 +14,9 @@ struct MainTabView: View {
 
     var body: some View {
         tabs
-            .background(TabBarClickObserver { index in
-                guard paths.indices.contains(index) else { return }
-                paths[index] = NavigationPath()
+            .background(TabBarClickObserver {
+                // Clicking the tab you're on (it is the selected one) goes back to its first page.
+                paths[tab] = NavigationPath()
             }.frame(width: 0, height: 0))
             .task { await TitleMarks.shared.refresh() }
     }

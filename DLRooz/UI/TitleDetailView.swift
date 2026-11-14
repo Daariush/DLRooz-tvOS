@@ -18,6 +18,9 @@ struct TitleDetailView: View {
     @State private var watchlistBusy = false
     @ObservedObject private var marks = TitleMarks.shared
     @State private var watchedBusy = false
+    /// The season whose episode row was already scrolled to the next episode (only once, so coming back
+    /// from the player doesn't move it again).
+    @State private var scrolledSeason: Int?
     @State private var starting = false
     @State private var playError: String?
     @State private var chooserEpisode: Episode?
@@ -200,7 +203,16 @@ struct TitleDetailView: View {
                         .padding(.horizontal, Self.margin)
                     }
                     .onAppear {
-                        if let next = primaryEpisode(d), next.season == current.number { proxy.scrollTo(next.streamId, anchor: .center) }
+                        // Bring the next episode into view once per season, and only when it is past the
+                        // first few tiles: scrolling a short row (or scrolling again after playback) pushed
+                        // the row off the edge in right-to-left layout.
+                        guard scrolledSeason != current.number else { return }
+                        scrolledSeason = current.number
+                        let sorted = current.episodes.sorted { $0.number < $1.number }
+                        if let next = primaryEpisode(d), next.season == current.number,
+                           let i = sorted.firstIndex(where: { $0.streamId == next.streamId }), i >= 5 {
+                            proxy.scrollTo(next.streamId, anchor: .center)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -357,7 +369,7 @@ struct EpisodeTile: View {
                 }
                 .frame(width: 220, height: 140)
                 if watched {
-                    WatchedBadge().scaleEffect(0.85, anchor: .topTrailing)
+                    WatchedBadge()
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing).padding(10)
                 } else if progress > 0.01 {
                     ProgressBar(value: progress).padding(12)
