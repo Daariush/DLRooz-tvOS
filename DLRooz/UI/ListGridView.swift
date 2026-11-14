@@ -1,0 +1,170 @@
+import SwiftUI
+
+/// A site list (`/archive/...`, My List) as a poster grid with infinite scroll; Series and Films
+/// pages also show the site menu's categories (dubbed, anime, Iranian, kids…) as chips.
+struct ListGridView: View {
+    let title: String
+    let path: String
+    let categories: CategoryKind?
+    /// My List changes when titles are bookmarked elsewhere in the app: refresh each time it is shown.
+    var reloadOnAppear = false
+    var emptyText: String?
+
+    @EnvironmentObject var model: AppModel
+    @State private var items: [TitleCard] = []
+    @State private var page = 0
+    @State private var lastPage = 1
+    @State private var loading = false
+    @State private var error: String?
+    @State private var chips: [SiteCategory] = []
+    @State private var selectedPath: String?
+    @State private var filters = ListFilters()
+
+    /// Filters (Films and Series pages) go through the site's advanced search; otherwise the chosen
+    /// category, or the page's own list.
+    private var currentPath: String {
+        if let categories, categories != .both, !filters.isDefault {
+            return filters.path(type: categories == .series ? "series" : "film")
+        }
+        return selectedPath ?? path
+    }
+    /// As many posters per row as fit between the margins, 40 apart.
+    private let columns = [GridItem(.adaptive(minimum: Theme.posterSize.width, maximum: Theme.posterSize.width),
+                                    spacing: Theme.cardSpacing, alignment: .top)]
+
+    var body: some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 30) {
+                PageTitle(title).padding(.horizontal, Theme.margin)
+                if !chips.isEmpty { chipRow }
+                if categories != nil { filterRow }
+                if let error, items.isEmpty {
+                    ErrorView(message: error) { Task { await reload() } }.frame(height: 500)
+                } else if items.isEmpty && !loading && page > 0 {
+                    EmptyStateView(icon: categories == nil ? "bookmark" : "film.stack",
+                                   message: emptyText ?? L("چیزی پیدا نشد", "Nothing here"))
+                } else if items.isEmpty && loading {
+                    LoadingView().frame(height: 500)
+                } else {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.gridRowSpacing) {
+                        ForEach(items) { card in
+                            PosterCard(card: card)
+                                .onAppear { if card.ref == items.last?.ref { Task { await loadMore() } } }
+                        }
+                    }
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.top, 20)
+                    if loading { ProgressView().frame(maxWidth: .infinity).padding() }
+                }
+            }
+            .padding(.vertical, Theme.pageTop)
+        }
+        .task { if page == 0 { await reload() } }
+        .onAppear { if reloadOnAppear && page > 0 && !loading { Task { await refresh() } } }
+    }
+
+    private var chipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.chipSpacing) {
+                chip(L("همه", "All"), path: nil)
+                ForEach(chips) { c in chip(UIStrings.joinPlurals(c.label), path: c.path) }
+            }
+            .padding(.horizontal, Theme.margin).padding(.vertical, Theme.chipSpacing)
+        }
+        .focusSection()
+    }
+
+    private func chip(_ label: String, path: String?) -> some View {
+        Button {
+            guard selectedPath != path || !filters.isDefault else { return }
+            selectedPath = path
+            filters = ListFilters()
+            Task { await reload() }
+        } label: {
+            Text(label)
+        }
+        .buttonStyle(TVButtonStyle(selected: selectedPath == path && filters.isDefault))
+    }
+
+    /// Genre, year, IMDb minimum and sort order (incl. critics' score). Choosing one switches the grid
+    /// to the site's advanced search; choosing a category chip clears them.
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.chipSpacing) {
+                FilterMenu(options: [nil] + ListFilters.genres.map { Optional($0.id) }, selection: filterBinding(\.genre),
+                           label: ListFilters.genreLabel, icon: "theatermasks")
+                FilterMenu(options: ListFilters.YearRange.options, selection: filterBinding(\.years),
+                           label: { $0.label }, icon: "calendar")
+                FilterMenu(options: ListFilters.imdbOptions, selection: filterBinding(\.minIMDb),
+                           label: ListFilters.imdbLabel, icon: "star")
+                FilterMenu(options: ListFilters.Sort.allCases, selection: filterBinding(\.sort),
+                           label: { L("مرتب‌سازی: ", "Sort: ") + $0.label }, icon: "arrow.up.arrow.down")
+                if !filters.isDefault {
+                    Button {
+                        filters = ListFilters()
+                        Task { await reload() }
+                    } label: {
+                        Label(L("حذف فیلترها", "Clear filters"), systemImage: "xmark")
+                    }
+                }
+            }
+            .padding(.horizontal, Theme.margin).padding(.vertical, Theme.chipSpacing)
+        }
+        .focusSection()
+    }
+
+    private func filterBinding<V: Equatable>(_ key: WritableKeyPath<ListFilters, V>) -> Binding<V> {
+        Binding(
+            get: { filters[keyPath: key] },
+            set: { value in
+                guard filters[keyPath: key] != value else { return }
+                filters[keyPath: key] = value
+                selectedPath = nil
+                Task { await reload() }
+            }
+        )
+    }
+
+    private func reload() async {
+        items = []
+        page = 0
+        lastPage = 1
+        error = nil
+        loading = true
+        defer { loading = false }
+        do {
+            if categories != nil && chips.isEmpty && selectedPath == nil {
+                let result = try await model.site.listWithCategories(currentPath)
+                chips = result.categories.filter { $0.kind == categories || $0.kind == .both }
+                apply(result.page)
+            } else {
+                apply(try await model.site.list(currentPath, page: 1))
+            }
+        } catch {
+            self.error = error.localizedDescription
+            page = 1
+        }
+    }
+
+    /// Reloads page 1 without blanking the grid.
+    private func refresh() async {
+        guard let first = try? await model.site.list(currentPath, page: 1) else { return }
+        items = first.items
+        page = first.page
+        lastPage = first.lastPage
+    }
+
+    private func loadMore() async {
+        guard !loading, page < lastPage else { return }
+        loading = true
+        defer { loading = false }
+        if let next = try? await model.site.list(currentPath, page: page + 1) { apply(next) }
+    }
+
+    private func apply(_ p: ListPage) {
+        let known = Set(items.map(\.ref))
+        items += p.items.filter { !known.contains($0.ref) }
+        page = p.page
+        lastPage = p.lastPage
+    }
+}
