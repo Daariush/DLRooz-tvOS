@@ -18,6 +18,7 @@ struct TitleDetailView: View {
     @State private var watchlistBusy = false
     @ObservedObject private var marks = TitleMarks.shared
     @State private var watchedBusy = false
+    @State private var startTask: Task<Void, Never>?
     /// The season whose episode row was already scrolled to the next episode (only once, so coming back
     /// from the player doesn't move it again).
     @State private var scrolledSeason: Int?
@@ -39,6 +40,10 @@ struct TitleDetailView: View {
         }
         .ignoresSafeArea(edges: .top)
         .task { if detail == nil { await load() } }
+        .onDisappear {
+            // Leaving the page (not just covering it with the player) drops a stream still loading.
+            if !PlayerPresenter.shared.isActive { startTask?.cancel() }
+        }
         .confirmationDialog(L("پخش با…", "Play with…"), isPresented: Binding(
             get: { chooserEpisode != nil }, set: { if !$0 { chooserEpisode = nil } }
         ), presenting: chooserEpisode) { ep in
@@ -121,17 +126,21 @@ struct TitleDetailView: View {
 
     private func actions(_ d: TitleDetail) -> some View {
         // Play, My List and Watched, then the audio choice: all in the one button shape.
-        HStack(spacing: Theme.chipSpacing + 4) {
+        HStack(spacing: 16) {
             if let ep = primaryEpisode(d) {
                 Button { play(ep) } label: {
                     HStack(spacing: 14) {
                         if starting { ProgressView() } else { Image(systemName: "play.fill") }
                         Text(primaryLabel(d, ep))
                     }
-                    .padding(.horizontal, 8)
                 }
                 .focused($playFocused)
                 .disabled(starting)
+            }
+            if let trailer = trailerSource(d) {
+                Button { playTrailer(trailer, d) } label: {
+                    Label(L("تریلر", "Trailer"), systemImage: "play.rectangle")
+                }
             }
             Button { toggleWatchlist() } label: {
                 Label(inWatchlist == true ? L("در لیست من", "In My List") : L("افزودن به لیست من", "Add to My List"),
@@ -146,18 +155,32 @@ struct TitleDetailView: View {
             }
             .disabled(watchedBusy)
             if !d.catalog.dub.isEmpty {
-                ChoiceChips(options: [false, true], selection: $dubbed) {
+                ChoiceChips(options: [false, true], selection: $dubbed, compact: true) {
                     $0 ? L("دوبله فارسی", "Persian dub") : L("زبان اصلی", "Original")
                 }
-                .padding(.leading, Theme.chipSpacing)
+                .padding(.leading, 12)
                 .onChange(of: dubbed) { _, v in
                     LocalPrefs.setDubbed(ref, v)
                     season = defaultSeason(d)
                 }
             }
         }
+        // Five or six buttons share this row, so they are the compact size.
+        .buttonStyle(TVButtonStyle(compact: true))
         .frame(maxWidth: .infinity, alignment: .leading)
         .focusSection()
+    }
+
+    /// The trailer in the best quality within the Settings limit (1080p when automatic).
+    private func trailerSource(_ d: TitleDetail) -> TrailerSource? {
+        let limit = settings.maxHeight > 0 ? settings.maxHeight : 1080
+        return d.trailers.first { $0.height > 0 && $0.height <= limit } ?? d.trailers.last
+    }
+
+    private func playTrailer(_ t: TrailerSource, _ d: TitleDetail) {
+        guard let url = URL(string: t.url) else { return }
+        PlayerPresenter.shared.presentTrailer(url: url, title: d.card.title,
+                                              cookies: model.site.http.jar.httpCookies(for: url))
     }
 
     private func episodes(_ d: TitleDetail) -> some View {
@@ -282,12 +305,14 @@ struct TitleDetailView: View {
         guard let d = detail, !starting else { return }
         starting = true
         let context = PlaybackContext(ref: ref, detail: d, dubbed: dubbed, episode: ep)
-        Task {
+        startTask = Task {
             defer { starting = false }
             do {
                 if choice == .internal || choice == .ask {
                     let controller = PlayerController(context: context, site: model.site, online: model.onlineSubtitles)
-                    try await controller.start()
+                    do { try await controller.start() } catch { controller.tearDown(); throw error }
+                    // The page was left while the stream was loading: don't start a player nobody asked for.
+                    guard !Task.isCancelled else { controller.tearDown(); return }
                     PlayerPresenter.shared.present(controller)
                 } else {
                     // A fresh link right before handing over: it expires after about a minute.
@@ -304,7 +329,8 @@ struct TitleDetailView: View {
                     }
                 }
             } catch {
-                playError = error.localizedDescription
+                // Leaving the page cancels the load; that isn't an error to show.
+                if !Task.isCancelled { playError = error.localizedDescription }
             }
         }
     }

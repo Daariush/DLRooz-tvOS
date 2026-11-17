@@ -258,6 +258,31 @@ enum TitleParser {
     private static let streamRx = Rx(#"var STREAM\s*=\s*(\{.*?\})\s*(?:;\s*\n|;?\s*</script>)"#, dotAll: true)
     private static let trailerRx = Rx(#"/img/590-331/trailer/[^'"\s]+"#)
     private static let imdbRx = Rx(#"imdb\.com/title/(tt\d+)"#)
+    /// The trailer player's source list: `issettrailer … var fileList = JSON.parse('[[{file,label},…]]')`.
+    private static let trailerListRx = Rx(#"issettrailer.*?var fileList\s*=\s*JSON\.parse\('(.*?)'\)"#, dotAll: true)
+    /// Fallback: the «دانلود تریلر» links, e.g. …/Trailer%20720p.mp4.
+    private static let trailerLinkRx = Rx(#"href='(https?://[^']+/play/[^']*Trailer[^']*?(\d{3,4})p\.mp4)'"#)
+
+    /// Trailer MP4s by quality, highest first.
+    static func trailers(in html: String) -> [TrailerSource] {
+        var out: [TrailerSource] = []
+        if let raw = trailerListRx.firstMatch(in: html)?[1],
+           let data = raw.replacingOccurrences(of: "\\'", with: "'").data(using: .utf8),
+           let lists = try? JSONSerialization.jsonObject(with: data) as? [[[String: Any]]] {
+            for item in lists.first ?? [] {
+                guard let file = item["file"] as? String, file.hasPrefix("http") else { continue }
+                let label = item["label"] as? String ?? ""
+                out.append(TrailerSource(url: file, height: Int(label.filter(\.isNumber)) ?? 0))
+            }
+        }
+        if out.isEmpty {
+            for m in trailerLinkRx.allMatches(in: html) {
+                guard let url = m[1] else { continue }
+                out.append(TrailerSource(url: url, height: Int(m[2] ?? "") ?? 0))
+            }
+        }
+        return out.sorted { $0.height > $1.height }
+    }
 
     static func parse(_ html: String, ref: TitleRef) throws -> TitleDetail {
         guard let json = streamRx.firstMatch(in: html)?[1] else { throw SiteError.parse("STREAM") }
@@ -294,7 +319,7 @@ enum TitleParser {
         }
         return TitleDetail(card: card, channel: channel, awards: awards, catalog: catalog, suggestions: suggestions,
                            suggestionPosters: posters, trailerThumbHash: trailer, inWatchlist: inWatchlist,
-                           isWatched: isWatched, imdbID: imdbRx.firstMatch(in: html)?[1])
+                           isWatched: isWatched, imdbID: imdbRx.firstMatch(in: html)?[1], trailers: trailers(in: html))
     }
 
     /// `STREAM` is `{"main": seasons, "dub"?: seasons}`; films use arrays, series objects keyed by number.

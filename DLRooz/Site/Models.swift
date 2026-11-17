@@ -166,6 +166,15 @@ struct TitleDetail: Sendable {
     var isWatched: Bool? = nil
     /// e.g. "tt22202452"; used to find subtitles on SubDL / SubSource / OpenSubtitles.
     let imdbID: String?
+    /// The title's trailer, one MP4 per quality; empty when the page has none.
+    var trailers: [TrailerSource] = []
+}
+
+/// One quality of a title's trailer (a plain MP4 link).
+struct TrailerSource: Hashable, Sendable {
+    let url: String
+    /// Picture height, e.g. 720; 0 when the label doesn't say.
+    let height: Int
 }
 
 /// Labels as on the site: Farsi, English, English + Farsi, Farsi for Dub.

@@ -15,7 +15,7 @@ enum SiteError: Error, LocalizedError {
         case .network: return L("اتصال به سایت برقرار نشد؛ دوباره تلاش کنید", "Couldn't reach the site. Please try again.")
         case .blocked: return L("سایت درخواست را مسدود کرد", "The site blocked the request")
         case .sessionExpired, .notLoggedIn: return L("نشست شما به پایان رسید؛ دوباره وارد شوید", "Your session ended. Please sign in again.")
-        case .parse: return L("پاسخ سایت قابل خواندن نبود", "Couldn't read the site's response")
+        case .parse: return L("اطلاعات درست دریافت نشد. دوباره امتحان کنید", "Couldn't get the data. Please try again.")
         }
     }
 

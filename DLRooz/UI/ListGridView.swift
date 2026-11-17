@@ -9,6 +9,8 @@ struct ListGridView: View {
     /// My List changes when titles are bookmarked elsewhere in the app: refresh each time it is shown.
     var reloadOnAppear = false
     var emptyText: String?
+    /// All / Movies / Series switch above the grid (My List, which mixes both).
+    var kindSwitch = false
 
     @EnvironmentObject var model: AppModel
     @State private var items: [TitleCard] = []
@@ -19,6 +21,14 @@ struct ListGridView: View {
     @State private var chips: [SiteCategory] = []
     @State private var selectedPath: String?
     @State private var filters = ListFilters()
+    /// The kind chosen with the switch: "all", "film" or "series"; remembered between visits.
+    @AppStorage("mylist.kind") private var kindChoice = "all"
+
+    private var shownKind: TitleKind? { kindSwitch ? TitleKind(rawValue: kindChoice) : nil }
+    private var shown: [TitleCard] {
+        guard let k = shownKind else { return items }
+        return items.filter { $0.ref.kind == k }
+    }
 
     /// Filters (Films and Series pages) go through the site's advanced search; otherwise the chosen
     /// category, or the page's own list.
@@ -38,6 +48,7 @@ struct ListGridView: View {
                 PageTitle(title).padding(.horizontal, Theme.margin)
                 if !chips.isEmpty { chipRow }
                 if categories != nil { filterRow }
+                if kindSwitch && !items.isEmpty { kindRow }
                 if let error, items.isEmpty {
                     ErrorView(message: error) { Task { await reload() } }.frame(height: 500)
                 } else if items.isEmpty && !loading && page > 0 {
@@ -45,11 +56,15 @@ struct ListGridView: View {
                                    message: emptyText ?? L("چیزی پیدا نشد", "Nothing here"))
                 } else if items.isEmpty && loading {
                     LoadingView().frame(height: 500)
+                } else if shown.isEmpty {
+                    EmptyStateView(icon: shownKind == .series ? "tv" : "film",
+                                   message: shownKind == .series ? L("سریالی در لیست نیست", "No series on your list")
+                                                                 : L("فیلمی در لیست نیست", "No movies on your list"))
                 } else {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.gridRowSpacing) {
-                        ForEach(items) { card in
+                        ForEach(shown) { card in
                             PosterCard(card: card)
-                                .onAppear { if card.ref == items.last?.ref { Task { await loadMore() } } }
+                                .onAppear { if card.ref == shown.last?.ref { Task { await loadMore() } } }
                         }
                     }
                     .padding(.horizontal, Theme.margin)
@@ -61,6 +76,22 @@ struct ListGridView: View {
         }
         .task { if page == 0 { await reload() } }
         .onAppear { if reloadOnAppear && page > 0 && !loading { Task { await refresh() } } }
+    }
+
+    /// All / Movies / Series, with how many of each; filters what's already loaded.
+    private var kindRow: some View {
+        HStack(spacing: Theme.chipSpacing) {
+            kindChip(L("همه", "All"), "all", count: items.count)
+            kindChip(L("فیلم", "Movies"), TitleKind.film.rawValue, count: items.filter { $0.ref.kind == .film }.count)
+            kindChip(L("سریال", "Series"), TitleKind.series.rawValue, count: items.filter { $0.ref.kind == .series }.count)
+        }
+        .padding(.horizontal, Theme.margin).padding(.vertical, Theme.chipSpacing)
+        .focusSection()
+    }
+
+    private func kindChip(_ label: String, _ value: String, count: Int) -> some View {
+        Button { kindChoice = value } label: { Text("\(label) (\(N(count)))") }
+            .buttonStyle(TVButtonStyle(selected: kindChoice == value))
     }
 
     private var chipRow: some View {

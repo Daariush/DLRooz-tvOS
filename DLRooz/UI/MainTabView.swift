@@ -19,6 +19,8 @@ struct MainTabView: View {
                 paths[tab] = NavigationPath()
             }.frame(width: 0, height: 0))
             .task { await TitleMarks.shared.refresh() }
+            // Going Back to a page must never leave the top tab bar hidden.
+            .onChange(of: paths) { TabBarReveal.showSoon() }
     }
 
     /// Choosing a tab in the top bar always shows that tab's own page: choosing the tab you're on goes
@@ -46,7 +48,7 @@ struct MainTabView: View {
             NavStack(path: $paths[2]) { ListGridView(title: L("فیلم‌ها", "Films"), path: SiteConfig.filmsPath, categories: .film) }
                 .tabItem { Label(L("فیلم‌ها", "Films"), systemImage: "film") }.tag(2)
             NavStack(path: $paths[3]) { ListGridView(title: L("لیست من", "My List"), path: SiteConfig.watchlistPath, categories: nil, reloadOnAppear: true,
-                                    emptyText: L("هنوز چیزی به لیست خود اضافه نکرده‌اید", "Nothing on your list yet")) }
+                                    emptyText: L("هنوز چیزی به لیست خود اضافه نکرده‌اید", "Nothing on your list yet"), kindSwitch: true) }
                 .tabItem { Label(L("لیست من", "My List"), systemImage: "bookmark") }.tag(3)
             NavStack(path: $paths[4]) { SearchView() }
                 .tabItem { Label(L("جستجو", "Search"), systemImage: "magnifyingglass") }.tag(4)

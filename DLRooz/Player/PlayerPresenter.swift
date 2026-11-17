@@ -13,9 +13,32 @@ final class PlayerPresenter: NSObject, AVPlayerViewControllerDelegate {
     private var playerVC: AVPlayerViewController?
     private var subtitleView: SubtitleOverlayView?
     private var bag = Set<AnyCancellable>()
+    /// The trailer's own player (no subtitles, progress or menus).
+    private var trailerPlayer: AVPlayer?
+    /// Checks that the player screen is still there; see `startWatchdog`.
+    private var watchdog: Timer?
+    private var missing = 0
 
-    func present(_ controller: PlayerController) {
-        guard let root = Self.topViewController() else { return }
+    /// Is a player (film, episode or trailer) on screen or about to be?
+    var isActive: Bool { playerVC != nil }
+
+    func present(_ controller: PlayerController, attempt: Int = 0) {
+        // Never leave an earlier player running behind a new one.
+        if attempt == 0 { closeExisting() }
+        guard !controller.tornDown else { return }
+        // Something is still animating away (the "Play with…" menu, an alert): UIKit would refuse the
+        // player now, so wait for it instead of starting a player that never gets a screen.
+        guard let root = Self.topViewController(), !root.isBeingDismissed, !root.isBeingPresented else {
+            if attempt < 12 {
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    self?.present(controller, attempt: attempt + 1)
+                }
+            } else {
+                controller.tearDown()
+            }
+            return
+        }
         self.controller = controller
         let vc = AVPlayerViewController()
         vc.player = controller.player
@@ -48,23 +71,117 @@ final class PlayerPresenter: NSObject, AVPlayerViewControllerDelegate {
             self?.showError(msg)
         }.store(in: &bag)
         controller.onStateChange = { [weak self] in self?.rebuildMenus() }
-        controller.onFinished = { [weak self] in self?.playerVC?.dismiss(animated: true) { self?.cleanUp() } }
+        controller.onFinished = { [weak self, weak vc] in vc?.dismiss(animated: true) { self?.cleanUp() } }
         rebuildMenus()
-        root.present(vc, animated: true)
+        root.present(vc, animated: true) { [weak self, weak vc, weak controller] in
+            guard let self, let vc, self.playerVC === vc else { return }
+            // UIKit can refuse a presentation (another one still animating). Then there is no screen
+            // and no Back button for this player, so it must not play.
+            guard vc.presentingViewController != nil else { self.cleanUp(); return }
+            controller?.didAppearOnScreen()
+            self.startWatchdog()
+        }
+        // If the presentation is refused, the completion above never runs.
+        Task { @MainActor [weak self, weak vc] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, let vc, self.playerVC === vc, vc.presentingViewController == nil else { return }
+            self.cleanUp()
+        }
+    }
+
+    /// Plays a title's trailer (a plain MP4) in the system player.
+    func presentTrailer(url: URL, title: String, cookies: [HTTPCookie]) {
+        closeExisting()
+        guard let root = Self.topViewController(), !root.isBeingDismissed else { return }
+        let asset = AVURLAsset(url: url, options: [
+            AVURLAssetHTTPCookiesKey: cookies,
+            AVURLAssetHTTPUserAgentKey: SiteConfig.userAgent,
+        ])
+        let item = AVPlayerItem(asset: asset)
+        let meta = AVMutableMetadataItem()
+        meta.identifier = .commonIdentifierTitle
+        meta.value = (title + " · " + L("تریلر", "Trailer")) as NSString
+        meta.extendedLanguageTag = "und"
+        item.externalMetadata = [meta]
+        let player = AVPlayer(playerItem: item)
+        let vc = AVPlayerViewController()
+        vc.player = player
+        vc.delegate = self
+        vc.allowsPictureInPicturePlayback = false
+        trailerPlayer = player
+        playerVC = vc
+        NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: item)
+            .receive(on: RunLoop.main)
+            .sink { [weak self, weak vc] _ in vc?.dismiss(animated: true) { self?.cleanUp() } }
+            .store(in: &bag)
+        root.present(vc, animated: true) { [weak self, weak vc, weak player] in
+            guard let self, let vc, self.playerVC === vc else { return }
+            guard vc.presentingViewController != nil else { self.cleanUp(); return }
+            player?.play()
+            self.startWatchdog()
+        }
+        Task { @MainActor [weak self, weak vc] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, let vc, self.playerVC === vc, vc.presentingViewController == nil else { return }
+            self.cleanUp()
+        }
+    }
+
+    /// Shuts down a player that is still around, and takes its screen away if it is still up.
+    private func closeExisting() {
+        let old = playerVC
+        cleanUp()
+        if let old, old.presentingViewController != nil { old.dismiss(animated: false) }
+    }
+
+    /// The dismissal callback isn't guaranteed (a quick double Back can interrupt it), and a player
+    /// without a screen keeps its sound going with nothing to stop it. So while a player is up, check
+    /// twice a second that its screen still exists and shut everything down as soon as it doesn't.
+    private func startWatchdog() {
+        watchdog?.invalidate()
+        watchdog = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let vc = self.playerVC else { return }
+                let gone = vc.presentingViewController == nil || (vc.viewIfLoaded?.window == nil && !vc.isBeingPresented)
+                // Two checks in a row, so a momentary state during an animation doesn't stop a film.
+                self.missing = gone ? self.missing + 1 : 0
+                if self.missing >= 2 { self.cleanUp() }
+            }
+        }
     }
 
     // MARK: AVPlayerViewControllerDelegate
 
+    nonisolated func playerViewControllerWillBeginDismissalTransition(_ playerViewController: AVPlayerViewController) {
+        // AVKit calls its delegate on the main thread.
+        MainActor.assumeIsolated {
+            guard self.playerVC === playerViewController else { return }
+            self.controller?.pauseForDismissal()
+            self.trailerPlayer?.pause()
+        }
+    }
+
     nonisolated func playerViewControllerDidEndDismissalTransition(_ playerViewController: AVPlayerViewController) {
-        Task { @MainActor in self.cleanUp() }
+        MainActor.assumeIsolated {
+            // A new player may already be up (next title started right away): leave that one alone.
+            guard self.playerVC === playerViewController else { return }
+            self.cleanUp()
+        }
     }
 
     private func cleanUp() {
+        watchdog?.invalidate()
+        watchdog = nil
+        missing = 0
         controller?.tearDown()
         controller = nil
+        trailerPlayer?.pause()
+        trailerPlayer?.replaceCurrentItem(with: nil)
+        trailerPlayer = nil
         playerVC = nil
         subtitleView = nil
         bag.removeAll()
+        TabBarReveal.showSoon()
     }
 
     private func showError(_ message: String) {

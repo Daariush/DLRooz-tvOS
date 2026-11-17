@@ -78,6 +78,7 @@ struct SearchView: View {
             .padding(.vertical, Theme.focusRoom)
         }
         .searchable(text: $state.query, prompt: L("فیلم، سریال…", "Movies, series…"))
+        .onAppear { TabBarReveal.showSoon() }
         .task(id: "\(attempt)|\(state.query)") {
             let q = state.query.trimmed
             guard q.count >= 2 else { state.results = []; state.error = nil; state.searched = ""; return }

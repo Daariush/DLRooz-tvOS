@@ -195,15 +195,18 @@ struct TVButtonStyle: ButtonStyle {
     var selected = false
     /// Stretch to the full width (Settings rows).
     var fullWidth = false
+    /// Smaller text and padding, for a row that holds many buttons (the title page's actions).
+    var compact = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Plate(configuration: configuration, selected: selected, fullWidth: fullWidth)
+        Plate(configuration: configuration, selected: selected, fullWidth: fullWidth, compact: compact)
     }
 
     private struct Plate: View {
         let configuration: ButtonStyleConfiguration
         let selected: Bool
         let fullWidth: Bool
+        let compact: Bool
         @Environment(\.isFocused) private var focused
         @Environment(\.isEnabled) private var enabled
 
@@ -215,10 +218,11 @@ struct TVButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.control)
+                .font(compact ? .system(size: 26, weight: .medium) : .control)
+                .lineLimit(1)
                 .foregroundStyle(focused ? Color.black : Color.white.opacity(enabled ? 1 : 0.75))
                 .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
-                .padding(.horizontal, 28).padding(.vertical, 16)
+                .padding(.horizontal, compact ? 20 : 28).padding(.vertical, compact ? 13 : 16)
                 .background(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).fill(fill))
                 .scaleEffect(focused ? (configuration.isPressed ? 1.0 : (fullWidth ? 1.03 : 1.06)) : 1)
                 .shadow(color: .black.opacity(focused ? 0.55 : 0), radius: 12, y: 10)
@@ -232,13 +236,14 @@ struct TVButtonStyle: ButtonStyle {
 struct ChoiceChips<T: Hashable>: View {
     let options: [T]
     @Binding var selection: T
+    var compact = false
     let label: (T) -> String
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(options, id: \.self) { option in
                 Button { selection = option } label: { Text(label(option)) }
-                    .buttonStyle(TVButtonStyle(selected: option == selection))
+                    .buttonStyle(TVButtonStyle(selected: option == selection, compact: compact))
             }
         }
     }

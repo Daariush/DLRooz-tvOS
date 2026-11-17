@@ -55,6 +55,12 @@ final class PlayerController: NSObject, ObservableObject {
     private var startAt: Double = 0
     private var lastSave = Date.distantPast
     private var subtitleTask: Task<Void, Never>?
+    /// Set once the player screen is actually showing. Until then nothing plays, so a player that never
+    /// reached the screen can't be heard.
+    private var onScreen = false
+    private var wantsPlay = false
+    /// After tearDown nothing may load or play again (a stream that finishes loading late is dropped).
+    private(set) var tornDown = false
 
     init(context: PlaybackContext, site: SiteRepository, online: OnlineSubtitles) {
         self.context = context
@@ -67,7 +73,23 @@ final class PlayerController: NSObject, ObservableObject {
         }
     }
 
+    /// The player screen is up: start (or resume) playback that was held back until now.
+    func didAppearOnScreen() {
+        guard !tornDown else { return }
+        onScreen = true
+        if wantsPlay { play() }
+    }
+
+    /// Back was pressed: silence at once, before the closing animation ends.
+    func pauseForDismissal() {
+        wantsPlay = false
+        player.pause()
+    }
+
     func tearDown() {
+        guard !tornDown else { return }
+        tornDown = true
+        wantsPlay = false
         saveProgress(force: true)
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
@@ -83,6 +105,7 @@ final class PlayerController: NSObject, ObservableObject {
     /// Fetches a fresh stream page (its link lives about a minute) and starts playback.
     func start() async throws {
         let s = try await site.openStream(context.episode, ref: context.ref, dubbed: context.dubbed)
+        guard !tornDown else { return }
         session = s
         startAt = watch.resumePosition(s.streamId)
         subtitleOffset = watch.entry(s.streamId)?.subtitleOffset ?? 0
@@ -141,7 +164,7 @@ final class PlayerController: NSObject, ObservableObject {
     }
 
     private func statusChanged(_ item: AVPlayerItem) {
-        guard item === player.currentItem else { return }
+        guard !tornDown, item === player.currentItem else { return }
         switch item.status {
         case .readyToPlay:
             Task { await selectAudio(item) }
@@ -166,6 +189,9 @@ final class PlayerController: NSObject, ObservableObject {
     }
 
     private func play() {
+        guard !tornDown else { return }
+        wantsPlay = true
+        guard onScreen else { return }
         player.defaultRate = speed
         player.playImmediately(atRate: speed)
     }
@@ -228,6 +254,7 @@ final class PlayerController: NSObject, ObservableObject {
     }
 
     private func playedToEnd() {
+        guard !tornDown else { return }
         saveProgress(force: true)
         if settings.autoplayNext, nextEpisode != nil {
             Task { await playNext() }
@@ -241,7 +268,7 @@ final class PlayerController: NSObject, ObservableObject {
     }
 
     func playNext() async {
-        guard let next = nextEpisode else { return }
+        guard !tornDown, let next = nextEpisode else { return }
         saveProgress(force: true)
         context.episode = next
         currentCues = []

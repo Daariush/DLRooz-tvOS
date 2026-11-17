@@ -68,3 +68,50 @@ struct TabBarClickObserver: UIViewRepresentable {
         }
     }
 }
+
+/// Brings the top tab bar back after going Back from a title page or closing the player.
+///
+/// On Apple TV the tab bar follows one scroll view and only shows again once that view is scrolled to
+/// the top. After Back (most often from a title page opened from Search, or after playing from it) it
+/// could still be following the page that was just closed, which is gone and stays scrolled down, so
+/// the bar never came back until the app was closed. This lets go of a scroll view that is no longer on
+/// screen and asks for the bar to be shown.
+@MainActor
+enum TabBarReveal {
+    static func show() {
+        guard let window = UIApplication.shared.connectedScenes
+                .compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first,
+              let tabs = find(in: window.rootViewController) else { return }
+        if let observed = tabs.tabBarObservedScrollView, observed.window == nil || !isVisible(observed) {
+            tabs.tabBarObservedScrollView = nil
+        }
+        tabs.tabBar.isHidden = false
+        tabs.tabBar.alpha = 1
+    }
+
+    /// Run after a page change has finished animating.
+    static func showSoon() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            show()
+        }
+    }
+
+    private static func isVisible(_ view: UIView) -> Bool {
+        var v: UIView? = view
+        while let current = v {
+            if current.isHidden || current.alpha < 0.01 { return false }
+            v = current.superview
+        }
+        return true
+    }
+
+    private static func find(in vc: UIViewController?) -> UITabBarController? {
+        guard let vc else { return nil }
+        if let tabs = vc as? UITabBarController { return tabs }
+        for child in vc.children {
+            if let found = find(in: child) { return found }
+        }
+        return find(in: vc.presentedViewController)
+    }
+}
